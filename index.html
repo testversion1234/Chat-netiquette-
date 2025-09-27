@@ -1,177 +1,202 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Nettiquette – Demokratie & soziales Handeln im Netz</title>
   <style>
-    body {
-      margin:0;
-      font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:#f6f7fb;
-      color:#333;
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:#f6f7fb; color:#333;
     }
-    header {
-      background:#2563eb;
-      color:#fff;
-      padding:20px;
-      text-align:center;
-      position:relative;
+    header{
+      background:#2563eb; color:#fff; text-align:center; padding:24px 16px;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);
     }
-    .logo {
-      width:110px;
-      height:110px;
-      border-radius:50%;
-      border:5px solid #fff;
-      display:block;
-      margin:0 auto 12px;
-      box-shadow:0 6px 20px rgba(0,0,0,.15);
+    .logo{
+      width:110px; height:110px; border-radius:50%; border:5px solid #fff;
+      display:block; margin:0 auto 12px; box-shadow:0 6px 20px rgba(0,0,0,.15);
     }
-    header h1 {
-      margin:0;
-      font-size:1.4rem;
+    header h1{ margin:0; font-size:1.6rem }
+    #scoreBox{ margin-top:8px; font-weight:700 }
+    main{ max-width:900px; margin:20px auto; padding:0 16px }
+    .card{
+      background:#fff; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.06);
+      padding:20px; margin-bottom:20px
     }
-    #score {
-      margin-top:8px;
-      font-weight:bold;
+    .card h2{ margin-top:0; font-size:1.15rem }
+    #chatbox{ background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.06);
+      padding:16px; max-height:360px; overflow-y:auto; margin-bottom:12px }
+    .row{ display:flex; gap:12px; margin:10px 0 }
+    .bot,.you{
+      max-width:78%; padding:10px 12px; border-radius:12px; line-height:1.45
     }
-    main {
-      max-width:900px;
-      margin:20px auto;
-      padding:0 16px;
+    .bot{ background:#eef2ff; border-top-left-radius:4px }
+    .you{ background:#d1fae5; border-top-right-radius:4px; margin-left:auto }
+    #userText{
+      width:100%; padding:12px; border-radius:8px; border:1px solid #cfd6e3; font-size:1rem
     }
-    .card {
-      background:#fff;
-      border-radius:12px;
-      box-shadow:0 6px 20px rgba(0,0,0,.06);
-      padding:20px;
-      margin-bottom:20px;
+    #sendBtn{
+      margin-top:10px; width:100%; background:#2563eb; color:#fff; border:none;
+      padding:12px; border-radius:8px; cursor:pointer; font-size:1rem
     }
-    .card h2 {
-      margin-top:0;
-    }
-    #chatbox {
-      background:#fff;
-      border-radius:12px;
-      box-shadow:0 4px 12px rgba(0,0,0,.06);
-      padding:16px;
-      height:300px;
-      overflow-y:auto;
-      margin-bottom:12px;
-    }
-    .bot, .you {
-      padding:10px 12px;
-      border-radius:12px;
-      margin-bottom:8px;
-      max-width:80%;
-      line-height:1.4;
-    }
-    .bot {
-      background:#eef2ff;
-      border-top-left-radius:0;
-    }
-    .you {
-      background:#d1fae5;
-      border-top-right-radius:0;
-      margin-left:auto;
-    }
-    #userText {
-      width:100%;
-      padding:12px;
-      border-radius:8px;
-      border:1px solid #ccc;
-      font-size:1rem;
-    }
-    #sendBtn {
-      margin-top:10px;
-      width:100%;
-      background:#2563eb;
-      color:#fff;
-      border:none;
-      padding:12px;
-      border-radius:8px;
-      cursor:pointer;
-      font-size:1rem;
-    }
-    #sendBtn:hover {
-      background:#1e4ed8;
-    }
+    #sendBtn:hover{ background:#1d4ed8 }
+    .muted{ color:#6b7280; font-size:.95rem }
   </style>
 </head>
 <body>
   <header>
-    <img src="logo.jpeg" alt="Logo" class="logo">
+    <!-- Logo fix eingebettet (Base64) – du brauchst KEINE separate Bilddatei -->
+    <img class="logo" alt="Logo"
+         src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxAQEBAQEA8QDw8QDxAQEA8PDw8QDw8PFREWFhURFRUYHSkgGBolGxUVITEhJSkrLi4uFx8zODMsNygtLisBCgoKDg0OGhAQGi0lHyUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJABJAMBIgACEQEDEQH/xAAXAAEBAQEAAAAAAAAAAAAAAAAAAQID/8QAFhABAQEAAAAAAAAAAAAAAAAAABEB/8QAFgEBAQEAAAAAAAAAAAAAAAAAAgME/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A0bQ0QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABTg3G6i8b0l0mQyXrQm1Vwq4td8n9c5nGub1qX8m1P2T3kXHq1l9Q2+uK6C1s9I7q9yW9a9j8u9gBqAAAAAAAAAAAAAAAAAAB5oYzWq2mVxYpZpO2uO3y2q8tqv8kJxv+U2e7rQ0dZ6eKk1a3p7c2bq7b8g1gYwAAAAAAAAAAAAAAABo3N3bq9XcOaeVdWq2d8n3u1gO1s6c2b0mN2m2lqzVbP2zq8+4lYwAAAAAAAAAAAAAAABq3lJ3W3t6c7bq2cYqf9cJXzv9A2mS1jH1Y0bq2uUe2dW0zq7G8e6t7pYgqAAAAAAAAAAAAAAABJxy4KJbq2oVq3c2mLx3v0zqV0p2Jk3z9YlI4m9u6dZfUr5b0oO1iAAAAAAAAAAAAAAABzR8y9E3U2d5lq0v0l1b0vUw5i6kz7o6z3S6n6a7b3Wb3nqgqAAAAAAAAAAAAAAABVj6dS0y7fW6u0bq7lXbYj9bV7M7a7a2k7r3Oe3q7b1qgqAAAAAAAAAAAAAAABWc4mcnk5bL2Y1l0S2r1b1Wl1c3b2g7O1m9W2W6+fKqgqAAAAAAAAAAAAAAAB//2Q==" />
     <h1>Nettiquette – Demokratie & soziales Handeln im Netz</h1>
-    <div id="score">Score: 0</div>
+    <div id="scoreBox">Score: <span id="score">0</span></div>
   </header>
+
   <main>
     <div class="card">
-      <h2>📖 Willkommen zum Netiquette-Training</h2>
+      <h2>📘 Willkommen zum Nettiquette-Training</h2>
       <p>Im Internet ist es wichtig, respektvoll miteinander zu reden. Deine Aufgaben:</p>
       <ul>
-        <li>Formuliere in der <b>Ich-Form</b> („Ich denke…“, „Ich finde…“).</li>
-        <li>Keine Beleidigungen, keine Schimpfwörter, kein BRÜLLEN IN GROSSBUCHSTABEN.</li>
-        <li>Freundlich bleiben – auch wenn dich jemand provoziert.</li>
-        <li>Nutze Emojis 👍😊 nur passend und nicht übertrieben.</li>
+        <li>Schreibe in der <b>Ich-Form</b> („Ich finde…“, „Ich denke…“).</li>
+        <li>Stelle <b>Nachfragen</b> statt Vorwürfe („Kannst du erklären…?“).</li>
+        <li><b>Deeskaliere</b> („Lass uns ruhig bleiben“, „Sorry, war nicht so gemeint“).</li>
+        <li>❌ Kein BRÜLLEN in GROSSBUCHSTABEN, ❌ keine !!!/???-Flut, ❌ keine Beleidigungen.</li>
       </ul>
-      <p>👉 Du erhältst Punkte für höfliche Antworten. Bei unhöflicher Sprache verlierst du Punkte.</p>
+      <p class="muted">Punkte: <b>+1</b> für Ich-Botschaft / Nachfragen / Deeskalation / Lob · <b>−1</b> für ALL CAPS, !!!/???, Emoji-Flut, Beleidigungen, DU-Unterstellungen.</p>
     </div>
-    <div id="chatbox"></div>
-    <input type="text" id="userText" placeholder="Schreibe deine Antwort...">
-    <button id="sendBtn">Senden</button>
+
+    <div class="card" id="chatbox">
+      <div id="chat"></div>
+      <input id="userText" type="text" placeholder="Schreibe deine Antwort höflich (Ich-Form, Nachfragen, keine ALL CAPS/!!!)…" />
+      <button id="sendBtn">Senden</button>
+      <p class="muted">Tipp: „Ich fand den Einstieg etwas schnell. Könntest du den Teil zu … kurz erklären?“</p>
+    </div>
   </main>
 
   <script>
-    const chatbox = document.getElementById("chatbox");
-    const userText = document.getElementById("userText");
-    const sendBtn = document.getElementById("sendBtn");
-    const scoreBox = document.getElementById("score");
+    // ====== Score & Chat-Grundlagen ======
     let score = 0;
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('userText');
+    const sendBtn = document.getElementById('sendBtn');
+    const scoreEl = document.getElementById('score');
 
-    const badWords = ["arsch", "idiot", "blödmann", "dummkopf", "scheiße", "kacke", "pisse", "wichser", "penner", "hure", "schlampe"];
-    const politeWords = ["bitte", "danke", "entschuldigung", "gerne", "freundlich", "hilfsbereit"];
+    function addRow(text, cls){
+      const r = document.createElement('div'); r.className='row';
+      const b = document.createElement('div'); b.className=cls; b.textContent=text;
+      r.appendChild(b); chat.appendChild(r); chat.scrollTop = chat.scrollHeight;
+    }
+    function addBot(t){ addRow(t,'bot'); }
+    function addYou(t){ addRow(t,'you'); }
+    function setScore(d){ score += d; scoreEl.textContent = score; }
 
-    const botMessages = [
-      "Paul: „Hä? Deine Aufgabe ist doch voll falsch! 😠“",
-      "Lena: „Warum hast du das so gemacht?“",
-      "Ali: „Kannst du mir helfen? Ich verstehe das nicht.“",
-      "Mia: „Das war aber keine gute Idee.“"
+    // ====== Unhöflichkeitsliste (ohne diskriminierende Slurs) ======
+    // Wir nutzen Regexe, damit z. B. "scheißeee" oder "blööd" auch erkannt werden.
+    const RUDE_PATTERNS = [
+      // Allgemeine Beleidigungen
+      "doof","bl[oö]d","trottel","dumm(?:kopf)?","hirn?los",
+      "spacko","spinner","loser","versager","nullchecker",
+      "peinlich","armselig","witzfigur","opfer","freak",
+      "banause","lappen","noob","idiot","dulli",
+
+      // Fäkalsprache & vulgär
+      "schei[sß][s$]e","kacke","kacka","miststück",
+      "arsch","arschloch","arschkriecher","penner",
+      "pisser","wichser","kotzbrocken","schlamper",
+      "verpeilt","furz","rotz","kotze","pisse",
+
+      // Sexuelle Schimpfwörter
+      "schlampe","hure","fotze",
+
+      // Aggressive Phrasen
+      "halt\\s*die\\s*(klappe|fresse|schnauze|gosch[e]?)",
+      "reiß\\s*die\\s*(klappe|fresse)\\s*nicht",
+      "h[äa]lt(?:'s|\\s*das)?\\s*maul",
+      "leck\\s*mich",
+      "verpiss\\s*dich",
+      "zieh\\s*leine"
+    ].map(s => new RegExp(s, "i"));
+
+    // Optional: Eigene (z. B. schulinterne) Begriffe ergänzen
+    const TEACHER_CUSTOM = [
+      // Beispiel: "heul doch"  -> new RegExp("heul\\s*doch","i")
+      // Hier KEINE diskriminierenden Begriffe eintragen.
     ];
 
-    function addMessage(text, sender) {
-      const div = document.createElement("div");
-      div.className = sender;
-      div.innerText = text;
-      chatbox.appendChild(div);
-      chatbox.scrollTop = chatbox.scrollHeight;
+    // ====== Analyse (negativ & positiv) ======
+    function analyzeMessage(msg){
+      const notes = [];
+      let delta = 0;
+
+      // BRÜLLEN (ALL CAPS)
+      if(/[A-ZÄÖÜ]{4,}/.test(msg) && msg === msg.toUpperCase()){
+        delta -= 1; notes.push("⚠️ Bitte nicht BRÜLLEN (ALL CAPS).");
+      }
+      // !!!/???/Doppelzeichen
+      if((msg.match(/!/g)||[]).length >= 3 || (msg.match(/\?/g)||[]).length >= 3 || /[!?]{2,}/.test(msg)){
+        delta -= 1; notes.push("⚠️ Zu viele Satzzeichen (!!!/???).");
+      }
+      // Emoji-Flut
+      const emojis = msg.match(/[\u{1F300}-\u{1FAFF}]/gu) || [];
+      if(emojis.length >= 3){
+        delta -= 1; notes.push("⚠️ Zu viele Emojis – nutze sie sparsam.");
+      }
+      // Beleidigungen/Fäkalsprache
+      const rude = RUDE_PATTERNS.some(rx => rx.test(msg)) || TEACHER_CUSTOM.some(rx => rx.test && rx.test(msg));
+      if(rude){
+        delta -= 1; notes.push("⚠️ Unhöfliche/vulgäre Formulierung vermeiden.");
+      }
+      // DU-Unterstellung / Pauschalisierung
+      if(/\bdu\b.*(bist|machst|hast).*(immer|nie|total|völlig|komplett|schlecht|falsch)/i.test(msg)){
+        delta -= 1; notes.push("⚠️ Vermeide DU-Unterstellungen – nutze Ich-Botschaft.");
+      }
+
+      // Positive Muster
+      if(/ich\s*(finde|fühle|denke|verstehe|möchte|würde|kann|glaube|merke|habe|wünsche)/i.test(msg)){
+        delta += 1; notes.push("✅ Gute Ich-Botschaft.");
+      }
+      if(/(kannst du|könntest du|was genau|wie meinst du|magst du|würdest du|hilft mir|erklär|erkläre|bitte genauer)/i.test(msg)){
+        delta += 1; notes.push("✅ Nachfragen erkannt.");
+      }
+      if(/(sorry|entschuldigung|tut mir leid|lass uns|sachlich|ruhig|kein problem|klären|lösung|gemeinsam)/i.test(msg)){
+        delta += 1; notes.push("✅ Deeskalation.");
+      }
+      // Lob/Bestätigung
+      if(/(gut gemacht|das stimmt|korrekt|richtig|gute idee|danke|super|toll|deine aufgabe(n)? (ist|sind) (gut|richtig))/i.test(msg)){
+        delta += 1; notes.push("✅ Höfliches Lob/Bestätigung.");
+      }
+
+      return {delta, notes};
     }
 
-    function botAsk() {
-      const msg = botMessages[Math.floor(Math.random() * botMessages.length)];
-      addMessage(msg, "bot");
+    // ====== Bot-Start & Handling ======
+    const STARTS = [
+      "Paul: „Hä? Deine Aufgabe ist doch voll falsch! 🙄“",
+      "Lisa: „Ey, du bist so langsam, mit dir kann man nix anfangen!“",
+      "Max: „Na toll, wieder typisch von dir 😂😂😂“",
+      "Anna: „Dein Referat war langweilig.“"
+    ];
+    function nextStart(){
+      const t = STARTS[Math.floor(Math.random()*STARTS.length)];
+      addBot(t);
     }
 
-    sendBtn.addEventListener("click", () => {
-      const text = userText.value.trim();
-      if (!text) return;
+    function handleSend(){
+      const text = (input.value||"").trim();
+      if(!text) return;
+      addYou(text);
+      const res = analyzeMessage(text);
+      setScore(res.delta);
+      addBot((res.notes.length? res.notes.join(" ") : "👍 Sehr höflich!") + " (Score: "+score+")");
+      input.value = "";
+    }
 
-      addMessage(text, "you");
+    sendBtn.addEventListener('click', handleSend);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') handleSend(); });
 
-      // Score-Check
-      let lower = text.toLowerCase();
-      if (badWords.some(w => lower.includes(w))) {
-        score -= 1;
-      }
-      if (politeWords.some(w => lower.includes(w))) {
-        score += 1;
-      }
-      scoreBox.innerText = "Score: " + score;
-
-      userText.value = "";
-      setTimeout(botAsk, 1200);
-    });
-
-    botAsk();
+    // Start
+    nextStart();
   </script>
 </body>
 </html>
