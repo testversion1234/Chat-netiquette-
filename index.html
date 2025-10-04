@@ -147,1029 +147,65 @@
     nextStart();
   </script>
 
-<!-- === BEGIN: Moderation aus Room-Chat (automatisch eingefügt, Layout unverändert) === -->
+<!-- === BEGIN: RoomChat-Moderation + Handler-Override === -->
 <script>
-const GOOD = ["bitte", "danke", "schön", "super", "toll", "klasse", "cool", "nett", "lieb", "freundlich", "höflich", "hilfreich", "fleißig", "respektvoll", "ruhig", "ehrlich", "fair", "aufmerksam", "motiviert", "hilfsbereit", "mutig", "stark", "tapfer", "geduldig", "liebevoll", "fröhlich", "achtsam", "friedlich", "großartig", "positiv", "sympathisch", "verständnisvoll", "zuvorkommend", "das ist lieb", "das ist nett", "das ist schön", "das gefällt mir", "gut gemacht", "sehr gut", "ich mag dich", "ich finde das gut", "vielen dank", "du hast recht", "das war fair", "das war freundlich", "das war super", "das ist toll", "gute idee", "ich freue mich", "ich helfe dir gerne", "ich finde das klasse"];
+// Wortlisten (aus RoomChat)
+const BAD_RACIST = ["jude","juden","judenschwein","neger","nigger","kanacke","mongo","zigeuner","hitler","heil hitler","sieg heil","nazi","ausländer raus","moslem","muslim","jew","kike"];
+const BAD_SEXIST = ["fotze","bitch","schlampe","schlampen","hure","wichser","opfer","schwuchtel"];
+const BAD_RUDE   = ["arsch","arschloch","bastard","blöd","blödmann","blödbommel","depp","doof","dumm","dummkopf","scheiße","scheisse","spasti","idiot","pissnelke","vollidiot","drecksack","noob","trottel","spinner","steckdosenbefruchter","fick","fuck","penner","blyat"];
 
-const BAD_RACIST = [
-    "heil hitler","judenschwein","nigger","neger","jude","moslem","kanake","ausländer raus",
-    "scheiß türke","scheiss türke","scheiß jude","scheiss jude"
-  ];
-const BAD_SEXIST = [
-    "hurensohn","fotze","bitch","schlampe","schlampen","hure","wichser","opfer","schwuchtel"
-  ];
-const BAD_RUDE = [
-    "arsch","arschloch","bastard","blöd","blödmann","blödbommel","depp","doof","dumm","dummkopf",
-    "scheiße","scheisse","spasti","idiot","pissnelke","vollidiot","drecksack","noob","trottel","spinner",
-    "steckdosenbefruchter","fick","fuck","penner","blyat"
-  ];
-
-// ===== Scoring-Konstanten =====
-  const SCORE_GOOD = 1;
-  const SCORE_ICH  = 5;
-  const PENALTY_RACIST = -5;
-  const PENALTY_SEXIST = -5;
-  const PENALTY_RUDE   = -1;
+const SCORE_GOOD = 1;
+const SCORE_ICH  = 5;
+const PENALTY_RACIST = -5;
+const PENALTY_SEXIST = -5;
+const PENALTY_RUDE   = -1;
 
 function containsAny(text, list){
-    const t = text.toLowerCase();
-    return list.find(w => t.includes(w));
-  }
-
-  // Ich-Form-Erkennung: enthält Wortgrenze "ich" (deutsch), case-insensitive
-  function hasIchForm(text){
-    if (!text) return false;
-    const t = text.toLowerCase();
-    // Wortgrenze: ich am Wortanfang, nach Leer-/Satzzeichen oder am Start
-    // Wir erlauben: "ich ", "ich,", "ich.", "(ich", "\"ich", etc. oder irgendwo im Satz " ich "
-    return /\bich\b/.test(t);
-  }
-
-  // Klassifikation
-  function classify(text){
-    if (!text) return {ok:true, category:null, hit:null, penalty:0};
-    const r = containsAny(text, BAD_RACIST);
-    if (r) return {ok:false, category:"rassistisch", hit:r, penalty:PENALTY_RACIST};
-    const s = containsAny(text, BAD_SEXIST);
-    if (s) return {ok:false, category:"sexistisch", hit:s, penalty:PENALTY_SEXIST};
-    const u = containsAny(text, BAD_RUDE);
-    if (u) return {ok:false, category:"unhöflich", hit:u, penalty:PENALTY_RUDE};
-    return {ok:true, category:null, hit:null, penalty:0};
-  }
-
-  function positiveDelta(text){
-    const t = (text||"").toLowerCase();
-    let d = 0;
-    for (const w of GOOD) if (t.includes(w)) d += SCORE_GOOD;
-    if (hasIchForm(t)) d += SCORE_ICH;
-    return d;
-  }
-
-  function updateScore(scoreEl, delta){
-    if (!scoreEl || !delta) return;
-    const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
-    scoreEl.textContent = String(cur + delta);
-  }
-
-  function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  const t = (text||'').toLowerCase();
+  return list.find(w => t.includes(w));
 }
 function hasIchForm(text){
-    if (!text) return false;
-    const t = text.toLowerCase();
-    // Wortgrenze: ich am Wortanfang, nach Leer-/Satzzeichen oder am Start
-    // Wir erlauben: "ich ", "ich,", "ich.", "(ich", "\"ich", etc. oder irgendwo im Satz " ich "
-    return /\bich\b/.test(t);
-  }
-
-  // Klassifikation
-  function classify(text){
-    if (!text) return {ok:true, category:null, hit:null, penalty:0};
-    const r = containsAny(text, BAD_RACIST);
-    if (r) return {ok:false, category:"rassistisch", hit:r, penalty:PENALTY_RACIST};
-    const s = containsAny(text, BAD_SEXIST);
-    if (s) return {ok:false, category:"sexistisch", hit:s, penalty:PENALTY_SEXIST};
-    const u = containsAny(text, BAD_RUDE);
-    if (u) return {ok:false, category:"unhöflich", hit:u, penalty:PENALTY_RUDE};
-    return {ok:true, category:null, hit:null, penalty:0};
-  }
-
-  function positiveDelta(text){
-    const t = (text||"").toLowerCase();
-    let d = 0;
-    for (const w of GOOD) if (t.includes(w)) d += SCORE_GOOD;
-    if (hasIchForm(t)) d += SCORE_ICH;
-    return d;
-  }
-
-  function updateScore(scoreEl, delta){
-    if (!scoreEl || !delta) return;
-    const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
-    scoreEl.textContent = String(cur + delta);
-  }
-
-  function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  if (!text) return false;
+  return /\bich\b/.test(String(text).toLowerCase());
 }
 function classify(text){
-    if (!text) return {ok:true, category:null, hit:null, penalty:0};
-    const r = containsAny(text, BAD_RACIST);
-    if (r) return {ok:false, category:"rassistisch", hit:r, penalty:PENALTY_RACIST};
-    const s = containsAny(text, BAD_SEXIST);
-    if (s) return {ok:false, category:"sexistisch", hit:s, penalty:PENALTY_SEXIST};
-    const u = containsAny(text, BAD_RUDE);
-    if (u) return {ok:false, category:"unhöflich", hit:u, penalty:PENALTY_RUDE};
-    return {ok:true, category:null, hit:null, penalty:0};
-  }
-
-  function positiveDelta(text){
-    const t = (text||"").toLowerCase();
-    let d = 0;
-    for (const w of GOOD) if (t.includes(w)) d += SCORE_GOOD;
-    if (hasIchForm(t)) d += SCORE_ICH;
-    return d;
-  }
-
-  function updateScore(scoreEl, delta){
-    if (!scoreEl || !delta) return;
-    const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
-    scoreEl.textContent = String(cur + delta);
-  }
-
-  function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  if (!text) return {ok:true, category:null, hit:null, penalty:0};
+  const r = containsAny(text, BAD_RACIST);
+  if (r) return {ok:false, category:"rassistisch", hit:r, penalty:PENALTY_RACIST};
+  const s = containsAny(text, BAD_SEXIST);
+  if (s) return {ok:false, category:"sexistisch", hit:s, penalty:PENALTY_SEXIST};
+  const u = containsAny(text, BAD_RUDE);
+  if (u) return {ok:false, category:"unhöflich", hit:u, penalty:PENALTY_RUDE};
+  return {ok:true, category:null, hit:null, penalty:0};
 }
 function positiveDelta(text){
-    const t = (text||"").toLowerCase();
-    let d = 0;
-    for (const w of GOOD) if (t.includes(w)) d += SCORE_GOOD;
-    if (hasIchForm(t)) d += SCORE_ICH;
-    return d;
-  }
-
-  function updateScore(scoreEl, delta){
-    if (!scoreEl || !delta) return;
-    const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
-    scoreEl.textContent = String(cur + delta);
-  }
-
-  function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  const t = (text||"").toLowerCase();
+  let d = 0;
+  if (Array.isArray(window.GOOD)) { for (const w of GOOD) if (t.includes(w)) d += SCORE_GOOD; }
+  if (hasIchForm(t)) d += SCORE_ICH;
+  return d;
 }
 function updateScore(scoreEl, delta){
-    if (!scoreEl || !delta) return;
-    const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
-    scoreEl.textContent = String(cur + delta);
-  }
-
-  function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  if (!scoreEl || !delta) return;
+  const cur = parseInt(scoreEl.textContent||"0", 10) || 0;
+  scoreEl.textContent = String(cur + delta);
 }
 function showWarn(container, text){
-    const p = document.createElement("p");
-    p.textContent = "⚠️ " + text;
-    p.style.color = "#b91c1c";
-    p.style.fontWeight = "600";
-    p.style.margin = "6px 0";
-    (container || document.body).appendChild(p);
-  }
-
-  function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
-}
-function showErr(container, text){
-    const p = document.createElement('p');
-    p.style.fontSize = '12px';
-    p.style.opacity = '0.85';
-    p.style.color = "#b91c1c";
-    p.textContent = '⚠️ ' + text;
-    (container || document.body).appendChild(p);
-    console.log('[CHAT-ERROR]', text);
-  }
-
-  // Positive, auto-fading encouragement notes (no layout changes)
-  function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  const p = document.createElement("p");
+  p.textContent = "⚠️ " + text;
+  p.style.color = "#b91c1c"; p.style.fontWeight = "600"; p.style.margin = "6px 0";
+  (container || document.body).appendChild(p);
+  setTimeout(()=>{ if(p.parentNode) p.parentNode.removeChild(p); }, 3000);
 }
 function showPositiveNote(container, text){
-    var p = document.createElement('p');
-    p.textContent = text;
-    p.style.color = '#059669';   // green-ish
-    p.style.fontWeight = '600';
-    p.style.margin = '6px 0';
-    (container || document.body).appendChild(p);
-    setTimeout(function(){ if (p && p.parentNode) p.parentNode.removeChild(p); }, 3000);
-  }
-
-function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    try { firebase.initializeApp(firebaseConfig); try { firebase.analytics(); } catch(e){} }
-    catch(err){ showErr(null, "initializeApp failed: " + (err && err.message || err)); return; }
-
-    const db = firebase.database();
-
-    // DOM
-    const chat = document.getElementById('chat') || document.getElementById('chatLog');
-    const send = document.getElementById('send');
-    const msg  = document.getElementById('msg');
-    const roomLabel = document.getElementById('roomLabel');
-    const nickLabel = document.getElementById('nickLabel');
-    const scoreEl = document.getElementById('score');
-
-    // Params
-    const params = new URLSearchParams(location.search);
-    const room = (params.get('room')||'general').trim();
-    const nick = (params.get('nick')||'Anonym').trim();
-    if (roomLabel) roomLabel.textContent = room || '—';
-    if (nickLabel) nickLabel.textContent = nick || '—';
-
-    const path = 'rooms/' + encodeURIComponent(room) + '/messages';
-
-    function renderMessage(m){
-      const p = document.createElement('p');
-      p.textContent = (m && m.user ? m.user : '—') + ': ' + (m && m.text ? m.text : '');
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Realtime: lesen
-    try {
-      db.ref(path).limitToLast(100).on('child_added', function(snap){
-        const m = snap.val();
-        renderMessage(m);
-        // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
-      }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
-    } catch(err) {
-      showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
-    }
-
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      updateScore(scoreEl, positiveDelta(t));
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
-
-      if (msg){ msg.value=''; msg.focus(); }
-    }
-
-    if (send) send.addEventListener('click', sendMessage);
-    if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
-  });
+  const p = document.createElement('p');
+  p.textContent = text;
+  p.style.color = '#059669'; p.style.fontWeight = '600'; p.style.margin = '6px 0';
+  (container || document.body).appendChild(p);
+  setTimeout(()=>{ if(p.parentNode) p.parentNode.removeChild(p); }, 3000);
 }
-</script>
-<!-- === END: Moderation aus Room-Chat === -->
 
-<script>
-// === BEGIN: Chat-Moderationslogik (wie RoomChat) ===
+// Override vorhandene Click-Handler: Button klonen => alle alten Listener weg
 (function(){
   function el(id){ return document.getElementById(id); }
   const input   = el('userText');
@@ -1178,88 +214,89 @@ function ready(fn){ if (document.readyState !== 'loading') fn(); else document.a
   const scoreEl = el('score');
   const scoreBox= el('scoreBox');
 
-  if (!input || !sendBtn || !log) {
-    console.warn('[Moderation] Erwartete IDs fehlen (userText, sendBtn, chat).');
-    return;
-  }
+  if (!input || !sendBtn || !log) { console.warn('[Moderation] IDs fehlen.'); return; }
 
-  function renderMessage(text, opts){
-    const p = document.createElement('p');
-    p.className = 'msg';
-    p.style.margin = '6px 0';
-    p.style.padding = '6px 10px';
-    p.style.borderRadius = '6px';
-    p.style.background = '#f6f6f6';
+  // Button klonen (entfernt alte Listener)
+  const clone = sendBtn.cloneNode(true);
+  sendBtn.parentNode.replaceChild(clone, sendBtn);
 
-    const badge = document.createElement('span');
-    badge.style.fontSize = '12px';
-    badge.style.fontWeight = '600';
-    badge.style.marginRight = '8px';
-
-    if (opts && opts.kind === 'bad') {
-      badge.textContent = '🚫 Unhöflich';
-      badge.style.color = '#b91c1c';
-      p.style.background = '#fff1f2';
-      if (opts.category) {
-        const small = document.createElement('small');
-        small.textContent = ' ('+opts.category+')';
-        small.style.opacity = '0.8';
-        small.style.marginLeft = '4px';
-        badge.appendChild(small);
-      }
-    } else if (opts && opts.kind === 'good') {
-      badge.textContent = '👍 Höflich';
-      badge.style.color = '#059669';
-      p.style.background = '#ecfdf5';
-    } else {
-      badge.textContent = '💬';
-      badge.style.color = '#444';
-    }
-
+  function renderBadge(kind, category){
     const span = document.createElement('span');
-    span.textContent = text;
-
-    p.appendChild(badge);
-    p.appendChild(span);
-    log.appendChild(p);
-    log.scrollTop = log.scrollHeight;
+    span.style.fontSize = '12px'; span.style.fontWeight='600'; span.style.marginLeft='6px';
+    if (kind==='bad'){
+      span.textContent = '🚫 Unhöflich' + (category? ' ('+category+')':'');
+      span.style.color = '#b91c1c';
+    } else if (kind==='good'){
+      span.textContent = '👍 Sehr höflich!';
+      span.style.color = '#059669';
+    } else {
+      span.textContent = '💬';
+      span.style.color = '#444';
+    }
+    return span;
   }
 
-  function handleSend(){
-    const text = (input.value || '').trim();
+  function markLastRow(kind, category){
+    // Suche letzte von dir hinzugefügte Zeile (in deinem Layout meist die letzte .row/.you oder letzter <p> im #chat)
+    const container = log;
+    let last = container.lastElementChild;
+    if (!last) return;
+    // füge Badge an den Anfang, wenn noch keiner existiert
+    const already = last.querySelector('.moderation-badge');
+    if (!already){
+      const badge = renderBadge(kind, category);
+      badge.className = 'moderation-badge';
+      if (last.firstChild) last.insertBefore(badge, last.firstChild);
+      else last.appendChild(badge);
+    }
+  }
+
+  function handleSendModerated(){
+    const text = (input.value||'').trim();
     if (!text) return;
 
-    // Bewertung wie im RoomChat
-    const neg = window.classify ? window.classify(text) : {ok:true, category:null, hit:null, penalty:0};
-    const pos = window.positiveDelta ? window.positiveDelta(text) : 0;
-    const delta = pos + (neg && !neg.ok ? (neg.penalty||0) : 0);
+    const neg = classify(text);
+    const pos = positiveDelta(text);
+    const delta = pos + (!neg.ok ? (neg.penalty||0) : 0);
+    if (delta) updateScore(scoreEl, delta);
 
-    if (delta) window.updateScore && window.updateScore(scoreEl, delta);
+    // Rufe ggf. bestehende Render-Logik auf, indem wir einfach den echten Klick simulieren?
+    // Wir haben ja alle alten Listener entfernt – deshalb bauen wir minimal die Standardaktion nach:
+    // 1) Trage Text in den Chat ein, wenn deine Seite das normalerweise über den Button macht:
+    //    Wir versuchen, einen generischen Weg: ein neues <p> mit deinem Text.
+    //    Falls deine Seite bereits selbst Text einfügt (z.B. via anderer Stelle), kannst du den folgenden Block auskommentieren.
+    if (!log.lastElementChild || (log.lastElementChild && !log.lastElementChild.textContent.includes(text))){
+      const p = document.createElement('p');
+      p.textContent = text;
+      p.style.margin = '6px 0';
+      p.style.padding = '6px 10px';
+      p.style.borderRadius = '6px';
+      p.style.background = '#f6f6f6';
+      log.appendChild(p);
+    }
 
-    if (neg && !neg.ok) {
-      window.showWarn && window.showWarn(scoreBox, 'Unhöfliche Sprache erkannt: "' + neg.hit + '". Formuliere es bitte freundlich.');
-      renderMessage(text, {kind:'bad', category:neg.category});
-    } else if (pos > 0) {
-      window.showPositiveNote && window.showPositiveNote(scoreBox, 'Danke für die höfliche Formulierung! (+'+pos+')');
-      renderMessage(text, {kind:'good'});
-    } else {
-      renderMessage(text, {kind:'neutral'});
+    // Markieren
+    if (!neg.ok){
+      showWarn(scoreBox, 'Unhöfliche Sprache erkannt: "' + neg.hit + '". Formuliere es bitte freundlich.');
+      markLastRow('bad', neg.category);
+    }else if (pos>0){
+      showPositiveNote(scoreBox, 'Danke für die höfliche Formulierung! (+'+pos+')');
+      markLastRow('good');
+    }else{
+      markLastRow('neutral');
     }
 
     input.value = '';
     input.focus();
+    log.scrollTop = log.scrollHeight;
   }
 
-  // Events
-  sendBtn.addEventListener('click', handleSend);
+  clone.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); handleSendModerated(); });
   input.addEventListener('keydown', function(e){
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter'){ e.preventDefault(); handleSendModerated(); }
   });
 })();
-// === END: Chat-Moderationslogik ===
 </script>
+<!-- === END: RoomChat-Moderation + Handler-Override === -->
 </body>
 </html>
