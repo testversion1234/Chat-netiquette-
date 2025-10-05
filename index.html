@@ -283,5 +283,104 @@
 })();
 
 </script>
+
+<script>
+// === NetticatCoach — permanent aktiv, kurz & freundlich auf Deutsch, mit Emojis ===
+// 🔐 API-Key manuell hier eintragen (nicht mit Key ins öffentliche Repo pushen!)
+const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // <-- hier eintragen
+
+async function askAI(prompt) {
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "Du bist NetticatCoach 😺 – antworte kurz, freundlich, respektvoll und kindgerecht auf Deutsch. Nutze passende Emojis sparsam. Hilf, höflicher zu formulieren." },
+          { role: "user", content: String(prompt || "") }
+        ],
+        temperature: 0.6,
+        max_tokens: 120
+      })
+    });
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    return text || "⚠️ Die KI konnte gerade nicht antworten. Versuch es später nochmal.";
+  } catch (e) {
+    console.warn("AI-Fehler:", e);
+    return "⚠️ Die KI konnte gerade nicht antworten. Versuch es später nochmal.";
+  }
+}
+
+// Hilfsfunktionen sicher nutzen, ohne Layout zu verändern
+function __nc_addBotLine(text) {
+  try {
+    if (typeof window.addBot === "function") { window.addBot(text); return; }
+    const chat = document.getElementById('chatbox') || document.getElementById('chat');
+    if (!chat) return;
+    const row = document.createElement('div'); row.className = 'row';
+    const b = document.createElement('div'); b.className = 'bot'; b.textContent = text;
+    row.appendChild(b); chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+  } catch(_) {}
+}
+
+function __nc_addBotLineTop(text) {
+  try {
+    const chat = document.getElementById('chatbox') || document.getElementById('chat');
+    if (!chat) { __nc_addBotLine(text); return; }
+    const row = document.createElement('div'); row.className = 'row';
+    const b = document.createElement('div'); b.className = 'bot'; b.textContent = text;
+    row.appendChild(b);
+    if (chat.firstChild) chat.insertBefore(row, chat.firstChild); else chat.appendChild(row);
+    chat.scrollTop = 0;
+  } catch(_) {}
+}
+
+// Beim Laden: Begrüßung im Schülerton (vor das Szenario)
+(function(){
+  const greet = "Hey 👋, ich bin NetticatCoach 😺 — ich chill hier mit euch im Chat und helf, wenn’s mal hitzig wird 😅";
+  // Wenn schon Nachrichten existieren (z. B. Szenario), Begrüßung oben einsetzen
+  const chat = document.getElementById('chatbox') || document.getElementById('chat');
+  if (chat && chat.children && chat.children.length > 0) {
+    __nc_addBotLineTop(greet);
+  } else {
+    __nc_addBotLine(greet);
+  }
+})();
+
+// Permanent aktiv: auf JEDE Nachricht reagieren
+(function(){
+  const input = document.getElementById('userText') || document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn') || document.getElementById('sendbtn') || document.getElementById('send_button');
+  if (!input || !sendBtn) { console.warn("NetticatCoach: Eingabe/Send-Elemente nicht gefunden."); return; }
+
+  const origHandleSend = window.handleSend;
+
+  window.handleSend = async function(){
+    const text = (input.value || "").trim();
+    if (!text) return;
+
+    // 1) Zuerst deine bestehende Logik ausführen (zeigt Nutzer-Blase, Punkte, Regeln etc.)
+    if (typeof origHandleSend === "function") {
+      try { await origHandleSend(); } catch(_) {}
+    }
+
+    // 2) Danach NetticatCoach-Antwort holen
+    const reply = await askAI(text);
+    __nc_addBotLine("Antwort von NetticatCoach: " + reply);
+  };
+
+  // Sicherstellen, dass Klick & Enter unser (neues) handleSend verwenden
+  try {
+    sendBtn.addEventListener('click', function(){ window.handleSend(); });
+    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') window.handleSend(); });
+  } catch(_) {}
+})();
+</script>
+
 </body>
 </html>
