@@ -484,7 +484,9 @@ function __nc_addBotLineTop(text) {
   wrap.appendChild(card);
   document.body.appendChild(wrap);
   const okBtn = card.querySelector('#ncIntroOk'); okBtn?.focus();
-  function closeIntro(){
+  async function closeIntro(){
+    try { await initOpenAIKey(); } catch(_) {}
+
     wrap.remove();
     if (typeof window.nextStart === "function" && !window.__ncIntroStartedScenario){
       window.__ncIntroStartedScenario = true;
