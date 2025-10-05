@@ -453,5 +453,49 @@ function __nc_addBotLineTop(text) {
 })();
 </script>
 
+
+<script>
+// === Abgesetztes Intro-Fenster vom NetticatCoach (ohne Layout-Änderung) ===
+(function showCoachIntro(){
+  const introText = "Hier stelle ich dir verschiedene Szenarien vor. Wie würdest du darauf antworten?";
+  const wrap = document.createElement('div');
+  wrap.setAttribute('role','dialog');
+  wrap.setAttribute('aria-label','NetticatCoach Einführung');
+  wrap.style.cssText = [
+    "position:fixed","inset:0","z-index:99999","display:flex","align-items:center",
+    "justify-content:center","background:rgba(0,0,0,.35)"
+  ].join(";");
+  const card = document.createElement('div');
+  card.style.cssText = [
+    "max-width:520px","width:90%","background:#fff","border-radius:14px",
+    "box-shadow:0 10px 30px rgba(0,0,0,.25)","padding:18px 18px 14px 18px",
+    "font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+    "color:#111"
+  ].join(";");
+  card.innerHTML =
+    '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">' +
+      '<div style="font-size:20px">😺</div>' +
+      '<div style="font-weight:700">NetticatCoach</div>' +
+    '</div>' +
+    '<div style="margin:4px 0 14px 0; font-size:15px;">'+ introText +'</div>' +
+    '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+      '<button id="ncIntroOk" style="background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;">Los geht’s!</button>' +
+    '</div>';
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+  const okBtn = card.querySelector('#ncIntroOk'); okBtn?.focus();
+  function closeIntro(){
+    wrap.remove();
+    if (typeof window.nextStart === "function" && !window.__ncIntroStartedScenario){
+      window.__ncIntroStartedScenario = true;
+      try { /* nichts tun, wenn dein Szenario schon läuft */ } catch(_){}
+    }
+  }
+  okBtn.addEventListener('click', closeIntro);
+  wrap.addEventListener('click', (e)=>{ if(e.target === wrap) closeIntro(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeIntro(); });
+})();
+</script>
+
 </body>
 </html>
