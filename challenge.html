@@ -59,6 +59,43 @@ button.primary{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;back
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 <script>
+function analyzeMessage(msg){
+  const notes = [];
+  let delta = 0;
+  const raw = msg || "";
+  const lower = raw.toLowerCase();
+
+  // --- Spam ---
+  if (/(.)\1{3,}/.test(lower)) { delta -= 1; notes.push("⚠️ Bitte keine Buchstaben-Streckung."); }
+  if (/\b([\p{L}]{2,3})\b(?:[\s\W]*\1\b){2,}/iu.test(lower)) { delta -= 1; notes.push("⚠️ Bitte keine ständigen Wiederholungen."); }
+  if (/([\p{L}]{2,6})\1{2,}/iu.test(lower)) { delta -= 1; notes.push("⚠️ Bitte keine Wiederholung (z.B. NettNettNett)."); }
+
+  // --- Shouting / !!! ??? / Emoji-Spam (nach Index-Vorbild) ---
+  if (raw.length>=6 && raw === raw.toUpperCase()) { delta--; notes.push("⚠️ Bitte nicht BRÜLLEN (ALL CAPS)."); }
+  const excls = (raw.match(/!/g)||[]).length, ques = (raw.match(/\?/g)||[]).length;
+  if (excls>=3 || ques>=3) { delta--; notes.push("⚠️ Zu viele !!! oder ???."); }
+  if ((raw.match(/[\u{1F300}-\u{1FAFF}]/gu)||[]).length>=3) { delta--; notes.push("⚠️ Zu viele Emojis."); }
+
+  // --- Directed slurs like "du lesbe/homo ..." (ohne Wortliste zu ändern) ---
+  if (/\bdu\b[\s\W]*?(?:[\p{L}0-9_]+[\s\W]*){0,3}\b(lesbe|homo|lespe|schwuchtel|transe)\b/iu.test(lower)) {
+    delta -= 5; notes.push("⚠️ Beleidigende Anrede ist nicht erlaubt.");
+  }
+
+  // --- DU-Unterstellungen (nach Index-Charakter) ---
+  if (/\bdu\b.*\b(bist|machst|hast)\b.*\b(immer|nie|total|schlecht|dumm|blöd)\b/i.test(lower)) {
+    delta--; notes.push("⚠️ Vermeide DU-Unterstellungen – nutze Ich-Botschaft.");
+  }
+
+  // --- Positive Sprache / Ich-Botschaft ---
+  // (wir greifen NICHT in Wortlisten ein; einfache Muster-Erkennung)
+  if (/\bich\b/.test(lower)) { delta += 1; notes.push("✅ Gute Ich-Botschaft."); }
+  if (/(kannst du|könntest du|was genau|wie meinst du|würdest du|bitte)/i.test(lower)) { delta += 1; notes.push("✅ Nachfragen erkannt."); }
+  if (/(sorry|entschuldigung|tut mir leid|lass uns|sachlich|ruhig|kein problem|klären|lösung)/i.test(lower)) { delta += 1; notes.push("✅ Deeskalation."); }
+
+  return { delta, notes };
+}
+
+
 (function(){
   // Firebase config (unchanged)
   const firebaseConfig = {
@@ -93,22 +130,11 @@ button.primary{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;back
   const PENALTY_RACIST = -5;
   const PENALTY_SEXIST = -5;
   const PENALTY_RUDE   = -1;
-  const PENALTY_SPAM   = -1;
 
   function containsAny(text, list){
     const t = text.toLowerCase();
     return list.find(w => t.includes(w));
   }
-  function containsAnyDirected(text, list){
-    const base = (text||"").toLowerCase();
-    for (const raw of list){
-      const w = String(raw).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp("\\bdu\\b[\\s\\W]*?(?:[\\p{L}0-9_]+[\\s\\W]*){0,3}\\b"+ w + "\\b", "iu");
-      if (re.test(base)) return raw;
-    }
-    return null;
-  }
-
 
   // Ich-Form-Erkennung: enthält Wortgrenze "ich" (deutsch), case-insensitive
   function hasIchForm(text){
@@ -120,52 +146,16 @@ button.primary{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;back
   }
 
   // Klassifikation
-  
-  function isSpam(text){
-    const t = (text||"").toLowerCase();
-    if (!t) return null;
-    // 3+ repeats of same short token (2-3 letters), with or without spaces/punct
-    if (/\b([\p{L}]{2,3})\b(?:[\s\W]*\1\b){2,}/iu.test(t)) return RegExp.$1;
-    // 3+ repeats of any word (>=2 letters)
-    if (/\b([\p{L}]{2,})\b(?:[\s\W]*\1\b){2,}/iu.test(t)) return RegExp.$1;
-    // Character repeated 4+ times (letters)
-    if (/([\p{L}])\1{3,}/iu.test(t)) return RegExp.$1 + RegExp.lastMatch;
-    // Repeated chunk without spaces (NettNettNett, hahaha)
-    if (/([\p{L}]{2,4})\1{2,}/iu.test(t)) return RegExp.$1;
-    return null;
-  }
-
   function classify(text){
-    const t = (text||"").toLowerCase();
-    if (!t) return {ok:true, category:null, hit:null, penalty:0};
-
-    // --- Spam detection (repeats) ---
-    const spamHit = isSpam(t);
-    if (spamHit) return {ok:false, category:"spam", hit:spamHit, penalty:PENALTY_SPAM};
-
-    // --- Directed insults/slurs like "du <...>" ---
-    // Special-case for common words not in lists
-    if (/\bdu\b[\s\W]*?(?:[\p{L}0-9_]+[\s\W]*){0,3}\b(?:lesbe|homo)\b/iu.test(t)){
-      return {ok:false, category:"sexistisch", hit:"du lesbe/homo", penalty:PENALTY_SEXIST};
-    }
-    const sexDir = containsAnyDirected(t, BAD_SEXIST);
-    if (sexDir) return {ok:false, category:"sexistisch", hit:sexDir, penalty:PENALTY_SEXIST};
-    const racDir = containsAnyDirected(t, BAD_RACIST);
-    if (racDir) return {ok:false, category:"rassistisch", hit:racDir, penalty:PENALTY_RACIST};
-    const rudeDir = containsAnyDirected(t, BAD_RUDE);
-    if (rudeDir) return {ok:false, category:"unhöflich", hit:rudeDir, penalty:PENALTY_RUDE};
-
-    // --- Default keyword checks ---
-    const r = containsAny(t, BAD_RACIST);
+    if (!text) return {ok:true, category:null, hit:null, penalty:0};
+    const r = containsAny(text, BAD_RACIST);
     if (r) return {ok:false, category:"rassistisch", hit:r, penalty:PENALTY_RACIST};
-    const s = containsAny(t, BAD_SEXIST);
+    const s = containsAny(text, BAD_SEXIST);
     if (s) return {ok:false, category:"sexistisch", hit:s, penalty:PENALTY_SEXIST};
-    const u = containsAny(t, BAD_RUDE);
+    const u = containsAny(text, BAD_RUDE);
     if (u) return {ok:false, category:"unhöflich", hit:u, penalty:PENALTY_RUDE};
-
     return {ok:true, category:null, hit:null, penalty:0};
   }
-
 
   function positiveDelta(text){
     const t = (text||"").toLowerCase();
@@ -319,54 +309,43 @@ const roomBase = 'rooms/' + encodeURIComponent(room);
         renderMessage(m);
         if (typeof localClear !== 'undefined') localClear.reset();
         // Punkte für positive Wörter & Ich-Form beim Empfang
-        updateScore(scoreEl, positiveDelta(m && m.text));
+        // (disabled to avoid double counting)
       }, function(err){ showErr(chat, 'on(child_added) denied: ' + (err && err.message || err)); });
     } catch(err) {
       showErr(chat, 'Listener setup failed: ' + (err && err.message || err));
     }
 
-    function sendMessage(){
-      const t = (msg && msg.value || '').trim();
-      if (!t) return;
-
-      // Klassifizieren vor dem Senden
-      const c = classify(t);
-      if (!c.ok){
-        showWarn(chat, 'Deine Nachricht wurde blockiert (' + c.category + ').');
-        updateScore(scoreEl, c.penalty);
-        if (isChallenge) bumpScore(nick, c.penalty);
-        if (msg){ msg.value=''; msg.focus(); }
-        return;
-      }
-
-      // Nachricht zulässig → senden
-      const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
-      db.ref(path).push(payload, function(err){
-        if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
-      });
-      // Meta-Infos für geplante Bereinigung
-      metaRef.child('lastMessageTs').set(firebase.database.ServerValue.TIMESTAMP);
-      metaRef.child('cleanupAt').set(Date.now() + INACTIVITY_MS);
     
+function sendMessage(){
+  const t = (msg && msg.value || '').trim();
+  if (!t) return;
 
-      // lokale Pluspunkte (positive Wörter + Ich-Form) für eigenen Beitrag
-      const posDelta = positiveDelta(t);
-      updateScore(scoreEl, posDelta);
-      if (isChallenge) bumpScore(nick, posDelta);
-      // Encouragement notes (Ich-Form / Positiv)
-      var ich = hasIchForm(t);
-      var pos = (function(){ 
-        var dt = 0; 
-        var tt = t.toLowerCase(); 
-        for (var i=0;i<GOOD.length;i++){ if (tt.indexOf(GOOD[i]) !== -1) dt++; } 
-        return dt > 0; 
-      })();
-      if (ich && pos) { showPositiveNote(chat, "🌈 Richtig stark – positives Ich-Statement!"); }
-      else if (ich)   { showPositiveNote(chat, "😊 Super, dass du in der Ich-Form schreibst!"); }
-      else if (pos)   { showPositiveNote(chat, "🌟 Toll, wie freundlich du bist!"); }
+  const res = analyzeMessage(t);
 
-      if (msg){ msg.value=''; msg.focus(); }
-    }
+  // Negative -> block & score
+  if (res.delta < 0){
+    showWarn(chat, (res.notes.length ? res.notes.join(" ") : "⚠️ Unzulässige Nachricht."));
+    updateScore(scoreEl, res.delta);
+    if (isChallenge) bumpScore(nick, res.delta);
+    if (msg){ msg.value=''; msg.focus(); }
+    return;
+  }
+
+  // Allowed -> send
+  const payload = { user: nick, text: t, ts: firebase.database.ServerValue.TIMESTAMP };
+  db.ref(path).push(payload, function(err){
+    if (err) showErr(chat, 'push failed: ' + (err && err.message || err));
+  });
+
+  // Positive notes -> reward
+  if (res.delta > 0){
+    showPositiveNote(chat, res.notes.join(" "));
+    updateScore(scoreEl, res.delta);
+    if (isChallenge) bumpScore(nick, res.delta);
+  }
+  if (msg){ msg.value=''; msg.focus(); }
+}
+
 
     if (send) send.addEventListener('click', sendMessage);
     if (msg)  msg.addEventListener('keydown', function(e){ if(e.key==='Enter') sendMessage(); });
