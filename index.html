@@ -464,41 +464,37 @@ function __nc_addBotLineTop(text) {
 
 
 
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__NETI_SCENARIOS_V6__) return;
-  window.__NETI_SCENARIOS_V6__ = true;
+  if (window.__NETI_SCENARIOS_V7__) return;
+  window.__NETI_SCENARIOS_V7__ = true;
 
-  // ===== Config =====
-  const NEXT_SCENARIO_AFTER = 5;   // answers required before Next is enabled
-  const SPAM_REPEAT_CONSONANT_FROM = 3; // set to 2 for Doppelkonsonant sofort
+  const NEXT_SCENARIO_AFTER = 2;
+  const SPAM_REPEAT_CONSONANT_FROM = 3;
   const politeTokens = [
     "bitte","danke","entschuld","könntest du","kannst du","würde","könnte",
     "ich finde","meiner meinung","sorry","entschuldige","entschuldigung"
   ];
 
-  // Offensive phrases / words
   const phraseBad = [
     /fick\s*dich/i,
-    /du\s*huren\s*sohn/i,
-    /hurensohn/i,
+    /du\s*huren?\s*sohn/i,
+    /du\s*h[uü]r[eenao]*n?\s*sohn/i,
+    /du\s+[a-zäöüß]{2,12}\s*sohn/i,
     /du\s*hure/i,
     /du\s*wichser/i
   ];
   const wordBad = [
-    "fick","ficken","scheiss","schei\u00DFe","scheisse","arsch","hurensohn","hure","wichser","miststück","bastard"
+    "fick","ficken","scheiss","schei\u00DFe","scheisse","arsch","arschloch",
+    "hurensohn","hure","wichser","miststück","bastard","fotze"
   ];
 
-  // ===== Utils =====
   function $(sel, root=document){ return root.querySelector(sel); }
   function $all(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
-  function findChatBox(){
-    return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body");
-  }
-  function findInput(){
-    return $("#message") || $("input[name='message']") || $("input[type='text']") || $("textarea");
-  }
+  function findChatBox(){ return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body"); }
+  function findInput(){ return $("#message") || $("input[name='message']") || $("input[type='text']") || $("textarea"); }
   function findSendButton(){
     let btn = $("#send") || $("#sendBtn") || $("#send-button") || $("button[type='submit']");
     if (!btn) btn = $all("button").find(b => /send|senden/i.test(b.id || "") || /senden|absenden|send/i.test(b.textContent || ""));
@@ -516,7 +512,6 @@ function __nc_addBotLineTop(text) {
     chat.scrollTop = chat.scrollHeight || 0;
   }
 
-  // Try to find the greeting row that contains "Etikette-Coach"
   function findGreetingRow(){
     const candidates = $all(".row .bot, .bot, .greeting, #greeting, .intro, .welcome").map(el => el.closest(".row") || el);
     for (const row of candidates){
@@ -528,35 +523,30 @@ function __nc_addBotLineTop(text) {
     return null;
   }
 
-  // ===== Scenario host placement: after greeting, before chat =====
-  let scenarioHost, nextBtn, counterSpan;
+  let scenarioHost, nextBtn, counterSpan, scoreHUD;
   function ensureScenarioHost(){
     if (!scenarioHost){
       scenarioHost = document.createElement("div");
       scenarioHost.id = "scenarioHost";
-      scenarioHost.style.margin = "8px 0 10px 0"; // small spacing only
+      scenarioHost.style.margin = "8px 0 10px 0";
     }
     const greet = findGreetingRow();
     const chat = findChatBox();
     if (greet && greet.parentNode){
-      // Insert right after greeting row
       if (greet.nextSibling !== scenarioHost){
         greet.parentNode.insertBefore(scenarioHost, greet.nextSibling);
       }
     } else if (chat && chat.parentNode){
-      // Fallback: before chat
       if (chat.previousSibling !== scenarioHost){
         chat.parentNode.insertBefore(scenarioHost, chat);
       }
     } else {
-      // Ultimate fallback: top of body
       if (document.body.firstChild !== scenarioHost){
         document.body.insertBefore(scenarioHost, document.body.firstChild || null);
       }
     }
   }
 
-  // ===== Scenarios =====
   const scenarios = [
     "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
     "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
@@ -586,12 +576,16 @@ function __nc_addBotLineTop(text) {
       +   "</div>"
       +   "<div class='muted' style='margin-top:6px'>Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>"
       +   "<div id='scenarioCounter' style='margin-top:6px; font-size:0.9em; opacity:0.8'></div>"
+      +   "<div id='scoreHUD' style='margin-top:6px; font-size:0.9em; opacity:0.9'></div>"
       + "</div></div>";
 
     nextBtn = $("#nextScenarioBtn", scenarioHost);
     counterSpan = $("#scenarioCounter", scenarioHost);
+    scoreHUD = $("#scoreHUD", scenarioHost);
+
     answersSinceScenario = 0;
     updateCounter();
+    updateScoreDisplay();
 
     if (nextBtn){
       nextBtn.addEventListener("click", function(){
@@ -613,7 +607,6 @@ function __nc_addBotLineTop(text) {
     }
   }
 
-  // ===== Scoring =====
   const score = { plus: 0, minus: 0 };
   function findScoreElement(){
     const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
@@ -629,8 +622,9 @@ function __nc_addBotLineTop(text) {
     if (el){
       if ("value" in el) el.value = String(total);
       el.textContent = String(total);
-    } else {
-      appendBotBubbleToChat("Punktestand: +" + score.plus + " / -" + score.minus + " ⇒ Gesamt: " + total);
+    }
+    if (typeof total === "number" && scoreHUD){
+      scoreHUD.textContent = "Punkte: +" + score.plus + " / -" + score.minus + " (Gesamt: " + total + ")";
     }
   }
   function countPolite(text){
@@ -641,25 +635,17 @@ function __nc_addBotLineTop(text) {
     return Math.min(c, 2);
   }
 
-  // ===== Censoring & Spam detection =====
-  function maskWord(w){
-    if (!w) return w;
-    if (w.length <= 2) return "*".repeat(w.length);
-    return w[0] + "*".repeat(w.length - 1);
-  }
-  function maskSegmentKeepingSpaces(seg){
-    return seg.replace(/\S+/g, (word) => maskWord(word));
-  }
+  function maskWord(w){ if (!w) return w; if (w.length <= 2) return "*".repeat(w.length); return w[0] + "*".repeat(w.length - 1); }
+  function maskSegmentKeepingSpaces(seg){ return seg.replace(/\S+/g, (word) => maskWord(word)); }
+
   function censorText(text){
     if (!text) return { censored: text, penaltyCount: 0 };
     let penalty = 0;
     let out = text;
 
-    // phrases
     phraseBad.forEach(re => {
       out = out.replace(re, (m) => { penalty++; return maskSegmentKeepingSpaces(m); });
     });
-    // single words
     wordBad.forEach(w => {
       const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b", "gi");
       out = out.replace(re, (m) => { penalty++; return maskWord(m); });
@@ -673,18 +659,15 @@ function __nc_addBotLineTop(text) {
     const matches = [];
     let count = 0;
 
-    // a) repeated consonants (same consonant >= threshold)
     const consonants = "bcdfghjklmnpqrstvwxyzß";
     const reRepeatCons = new RegExp("([" + consonants + "])\\1{" + (SPAM_REPEAT_CONSONANT_FROM-1) + ",}", "i");
     const m1 = text.match(reRepeatCons);
     if (m1){ count += 1; matches.push(m1[0]); types.push("wiederholte Konsonanten"); }
 
-    // b) repeated words with spaces (>=5)
     const reRepeatWordSpaced = new RegExp("\\b(\\w{1,20})(?:\\s+\\1){4,}\\b","gi");
     const m2 = text.match(reRepeatWordSpaced);
     if (m2 && m2.length){ count += m2.length; matches.push(...m2); for (let i=0;i<m2.length;i++) types.push("wiederholte Wörter (mit Abstand)"); }
 
-    // c) concatenated repeats without spaces (>=5)
     const reRepeatTokenNoSpace = new RegExp("\\b([a-zA-Z]{1,10})\\1{4,}\\b","g");
     const m3 = text.match(reRepeatTokenNoSpace);
     if (m3 && m3.length){ count += m3.length; matches.push(...m3); for (let i=0;i<m3.length;i++) types.push("wiederholte Wörter (ohne Abstand)"); }
@@ -701,7 +684,6 @@ function __nc_addBotLineTop(text) {
       if (hasBot) continue;
       let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
       if (!target) continue;
-      // highlight tokens containing asterisks
       const html = target.innerHTML;
       const replaced = html.replace(/(\S*\*+\S*)/g, "<span style='color:red;font-weight:bold'>$1</span>");
       if (replaced !== html) target.innerHTML = replaced;
@@ -722,7 +704,6 @@ function __nc_addBotLineTop(text) {
     appendBotBubbleToChat("Super: Höfliche Formulierung erkannt – +" + count + " Punkt(e).");
   }
 
-  // ===== Send integration =====
   function onUserSend(textFromInput){
     const originalText = textFromInput || "";
 
@@ -786,18 +767,17 @@ function __nc_addBotLineTop(text) {
   }
 
   ready(function(){
-    renderScenario();   // render once immediately
+    renderScenario();
     updateScoreDisplay();
 
     if (!wrapSendMessage()){
       attachFormAndButtonHandlers();
       const obs = new MutationObserver(() => {
-        ensureScenarioHost();       // keep it between greeting and chat
+        ensureScenarioHost();
         attachFormAndButtonHandlers();
       });
       obs.observe(document.documentElement, { childList: true, subtree: true });
     } else {
-      // Even if sendMessage exists, still ensure placement
       const obs2 = new MutationObserver(() => ensureScenarioHost());
       obs2.observe(document.documentElement, { childList: true, subtree: true });
     }
