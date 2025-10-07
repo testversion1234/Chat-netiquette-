@@ -628,5 +628,77 @@ function __nc_addBotLineTop(text) {
 })();
 </script>
 
+
+<script>
+(function(){
+  if (window.__inlineScenarioFlowInjected) return;
+  window.__inlineScenarioFlowInjected = true;
+
+  const ALL_SCENARIOS = [{"title": "Respekt wahren", "prompt": "Jemand schreibt dir: „Das war ja mega dumm von dir.“ Wie antwortest du respektvoll und stoppst die Beleidigung?"}, {"title": "Rassistische Sprache", "prompt": "Im Chat fällt eine rassistische Bemerkung. Lehn die Formulierung klar ab und erinnere an die Chat-Regeln."}, {"title": "Sexistische Bemerkung", "prompt": "Eine Schülerin wird wegen ihres Geschlechts herabgewürdigt. Wie reagierst du, um Respekt einzufordern?"}, {"title": "Ausgrenzung", "prompt": "Eine Person wird im Chat ignoriert oder lächerlich gemacht. Welche Nachricht schreibst du, um zu unterstützen?"}, {"title": "Gerüchte stoppen", "prompt": "Jemand verbreitet ein Gerücht über einen Mitschüler. Wie reagierst du verantwortungsvoll?"}, {"title": "Spam im Chat", "prompt": "Jemand flutet den Chat mit Emojis. Formuliere eine kurze, freundliche Aufforderung, das zu lassen."}, {"title": "Privatsphäre schützen", "prompt": "Jemand postet eine private Telefonnummer. Was schreibst du sofort?"}, {"title": "Konflikt deeskalieren", "prompt": "Zwei Personen streiten heftig. Welche Nachricht schlägt eine Pause und sachliches Klären vor?"}, {"title": "Missverständnis klären", "prompt": "Eine ironische oder sarkastische Nachricht wird falsch verstanden. Wie klärst du freundlich auf?"}, {"title": "Hilfe anbieten", "prompt": "Jemand wirkt traurig und zurückgezogen. Welche unterstützende Nachricht schreibst du?"}];
+
+  function pickFive(arr){
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, 5);
+  }
+
+  // Global state
+  window.__SC_QUEUE = [];
+  window.__SC_POS = -1;
+  window.__SC_AWAITING_STUDENT = false;
+
+  function postNextScenario(){
+    window.__SC_POS++;
+    if (window.__SC_POS >= window.__SC_QUEUE.length){
+      if (typeof addBot === 'function') addBot("💬 Nettiquette-Coach: 🎉 Das waren alle Szenarien. Danke fürs Mitmachen!");
+      window.__SC_AWAITING_STUDENT = false;
+      return;
+    }
+    const s = window.__SC_QUEUE[window.__SC_POS];
+    if (typeof addBot === 'function') addBot("💬 Nettiquette-Coach: Szenario " + (window.__SC_POS+1) + "/" + window.__SC_QUEUE.length + " – " + (s.prompt || ""));
+    window.__SC_AWAITING_STUDENT = true; // jetzt auf Schülerantwort warten
+  }
+
+  // Start from popup -> nextStart()
+  window.nextStart = function(){
+    window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+    window.__SC_POS = -1;
+    window.__SC_AWAITING_STUDENT = false;
+    postNextScenario();
+  };
+
+  // Chain the current handleSend (which already has spam/profanity logic)
+  var chainedHandle = (typeof window.handleSend === 'function') ? window.handleSend.bind(window) : null;
+  var sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
+  var inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
+
+  window.handleSend = function(){
+    var awaiting = window.__SC_AWAITING_STUDENT;
+    if (chainedHandle){ chainedHandle(); }
+    else {
+      // minimal fallback: echo user's text for flow; should normally not run
+      var txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
+      if (!txt) return;
+      if (typeof addYou === 'function') addYou(txt);
+      if (typeof addBot === 'function') addBot("Danke für deine Antwort.");
+      if (inputEl) inputEl.value = "";
+    }
+    if (awaiting){
+      window.__SC_AWAITING_STUDENT = false;
+      postNextScenario();
+    }
+  };
+
+  if (sendBtn){
+    try { sendBtn.onclick = window.handleSend; } catch(_){}
+    try { sendBtn.removeEventListener('click', chainedHandle); } catch(_){}
+    try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
+  }
+})();
+</script>
+
 </body>
 </html>
