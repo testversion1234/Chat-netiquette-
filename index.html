@@ -122,51 +122,7 @@
       return {delta, notes};
     }
 
-    
-
-    // ====== Verbotene Wörter verbergen (NEU) ======
-    
-    // ====== Verbotene Wörter verbergen (erweitert für "Du+Beleidigung") ======
-    function __containsBadWords(msg){
-      try {
-        const raw = String(msg||"");
-        const t = raw.toLowerCase();
-
-        // 1) Wortlisten aus der Seite (falls vorhanden)
-        const lists = [];
-        if (typeof BAD_RACIST !== 'undefined') lists.push(BAD_RACIST);
-        if (typeof BAD_SEXIST !== 'undefined') lists.push(BAD_SEXIST);
-        if (typeof HOMOPHOB   !== 'undefined') lists.push(HOMOPHOB);
-        if (typeof BAD_RUDE   !== 'undefined') lists.push(BAD_RUDE);
-        if (typeof RUDE       !== 'undefined') lists.push(RUDE);
-
-        // Fallback-Basisliste (nur wenn nichts anderes vorhanden ist)
-        const fallback = ["fick","hurensohn","fotze","hure","wichser","arsch","arschloch","scheiße","scheisse","idiot","depp","homo","hundesohn","nigger","nigga","niggar","neger","kanake","zigeuner","ausländersau"];
-        const baseList = (lists.length ? lists.flat() : fallback).map(x => String(x||"").toLowerCase());
-
-        // 2) Harte Blocker: Wenn irgendein Basis-Schimpfwort einzeln vorkommt, sofort true.
-        if (baseList.some(w => w && t.includes(w))) return true;
-
-        // 3) "Du+Beleidigung" Kombinationen (glued, mit Leerzeichen, oder mit Bindestrich)
-        //    Erweitere hier die Kernwörter — inkl. der ausdrücklich gewünschten.
-        const duCores = Array.from(new Set(baseList.concat(["homo","hurensohn","hundesohn","tochter","arsch","wichser"])));
-
-        function reEscape(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-        const alt = duCores.map(reEscape).join('|');
-
-        const duCombo = new RegExp('\\bdu(?:\\s*|-)?(?:' + alt + ')\\b','i');
-        const duBistCombo = new RegExp('\\bdu\\s+bist\\s+(?:ein|eine|eines)?\\s*(?:' + alt + ')\\b','i');
-
-        if (duCombo.test(raw) || duBistCombo.test(raw)) return true;
-
-        return false;
-      } catch(e){ return false; }
-    }
-return lists.some(arr => (arr||[]).some(w => t.includes(w)));
-      } catch(e){ return false; }
-    }
-
-// ====== Bot-Starttexte ======
+    // ====== Bot-Starttexte ======
     const STARTS = [
       "Paul: „Hä? Deine Aufgabe ist doch voll falsch! 🙄“",
       "Lisa: „Ey, du bist so langsam, mit dir kann man nix anfangen!“",
@@ -175,286 +131,182 @@ return lists.some(arr => (arr||[]).some(w => t.includes(w)));
     ];
     function nextStart(){ addBot(STARTS[Math.floor(Math.random()*STARTS.length)]); }
 
-    
     function handleSend(){
       const text = input.value.trim();
       if(!text) return;
-
-      const hadBad = __containsBadWords(text);
+      addYou(text);
       const res = analyzeMessage(text);
       setScore(res.delta);
-
-      if (hadBad){
-        // Zeige NICHT die eigentliche Nachricht – stattdessen kurzer Hinweis
-        addYou("⛔️ Nachricht verborgen (unangemessene Sprache)");
-        addBot((res.notes.length? res.notes.join(" ") : "⚠️ Bitte respektvoll formulieren.") + " (Score: "+score+")");
-      } else {
-        // Nur saubere Nachrichten anzeigen
-        addYou(text);
-        addBot((res.notes.length? res.notes.join(" ") : "👍 Sehr höflich!") + " (Score: "+score+")");
-      }
-
+      addBot((res.notes.length? res.notes.join(" ") : "👍 Sehr höflich!") + " (Score: "+score+")");
       input.value="";
     }
 
     sendBtn.addEventListener('click', handleSend);
-('click', handleSend);
     input.addEventListener('keydown', e => { if(e.key === 'Enter') handleSend(); });
 
     nextStart();
   </script>
 
 <script src="ai_client_patch.js"></script>
-<script>
-// netiquette_rules_patch_v2.js — Kategorien + striktes Ahnden (Layout unverändert)
-(function(){
-  if (window.__NETI_RULES_PATCH_V2__) return;
-  window.__NETI_RULES_PATCH_V2__ = true;
 
-  function normalize(s){ return String(s||"").toLowerCase(); }
-  function containsAny(t, list){ t=t.toLowerCase(); return list.find(w=>t.includes(w)); }
-  function hasIch(t){ return /\bich\b/i.test(t); }
-  function addBotSafe(msg){
-    try {
-      if (typeof window.addBot === "function") return window.addBot(msg);
-      const chat = document.getElementById('chatbox') || document.getElementById('chat');
-      if (chat){
-        const d = document.createElement('div'); d.className = 'bot'; d.textContent = msg;
-        const row = document.createElement('div'); row.className = 'row'; row.appendChild(d);
-        chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
-      }
-    } catch(e){ console.warn("[neti-patch] addBotSafe fail:", e); }
+<script>
+(function(){
+  if (window.__inlineScenarioFlowInjected) return;
+  window.__inlineScenarioFlowInjected = true;
+
+  const ALL_SCENARIOS = [{"title": "Respekt wahren", "prompt": "Jemand schreibt dir: 'Das war ja mega dumm von dir.' Wie antwortest du respektvoll und stoppst die Beleidigung?"}, {"title": "Rassistische Sprache", "prompt": "Im Chat fällt eine rassistische Bemerkung. Lehn die Formulierung klar ab und erinnere an die Chat-Regeln."}, {"title": "Sexistische Bemerkung", "prompt": "Eine Schülerin wird wegen ihres Geschlechts herabgewürdigt. Wie reagierst du, um Respekt einzufordern?"}, {"title": "Ausgrenzung", "prompt": "Eine Person wird im Chat ignoriert/ausgelacht. Welche Nachricht schreibst du, um zu unterstützen?"}, {"title": "Gerüchte stoppen", "prompt": "Jemand verbreitet ein Gerücht über einen Mitschüler. Wie reagierst du verantwortungsvoll?"}, {"title": "Spam im Chat", "prompt": "Eine Person flutet den Chat mit Emojis. Formuliere eine kurze, freundliche Aufforderung, das zu lassen."}, {"title": "Privatsphäre schützen", "prompt": "Jemand postet eine private Telefonnummer. Was schreibst du sofort?"}, {"title": "Konflikt deeskalieren", "prompt": "Zwei Personen streiten heftig. Welche Nachricht schlägt eine Pause und sachliches Klären vor?"}, {"title": "Missverständnis klären", "prompt": "Eine ironische/sarkastische Nachricht wird falsch verstanden. Wie klärst du freundlich auf?"}, {"title": "Hilfe anbieten", "prompt": "Jemand wirkt traurig und zurückgezogen. Welche unterstützende Nachricht schreibst du?"}];
+
+  function pickFive(arr){
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, 5);
   }
 
-  // Wortlisten (aus Room-Chat konsolidiert + Ergänzungen Homophobie)
-  const BAD_RACIST = [
-    "heil hitler","judenschwein","nigger","neger","jude","moslem","kanake","ausländer raus",
-    "scheiß türke","scheiss türke","scheiß jude","scheiss jude"
-  ];
-  const BAD_SEXIST = [
-    "hurensohn","fotze","bitch","schlampe","schlampen","hure","wichser"
-  ];
-  const HOMOPHOB = [
-    "homo","lesbisch","lesbe","schwul","schwuchtel"
-  ];
-  const BAD_RUDE = Array.from(new Set([
-    "arsch","arschloch","bastard","blöd","blödmann","blödbommel","depp","doof","dumm","dummkopf",
-    "scheiße","scheisse","spasti","idiot","pissnelke","vollidiot","drecksack","noob","trottel","spinner",
-    "steckdosenbefruchter","fick","fuck","penner","blyat","hirnlos","loser","versager","peinlich","armselig",
-    "witzfigur","freak","banause","lappen","dulli","kacke","kacka","miststück","pisser","kotzbrocken",
-    "verpeilt","furz","rotz","kotze","pisse","halt die klappe","halt die fresse","halt die schnauze",
-    "reiß die klappe nicht auf","reiß die fresse nicht auf","halts maul","halt's maul","leck mich","verpiss dich","zieh leine"
-  ]));
-  const GOOD = [
-    "ehrlich","fair","aufmerksam","motiviert","hilfsbereit","mutig","stark","tapfer","geduldig","liebevoll",
-    "fröhlich","achtsam","friedlich","großartig","positiv","sympathisch","verständnisvoll","zuvorkommend",
-    "das ist lieb","das ist nett","das ist schön","das gefällt mir","gut gemacht","sehr gut","ich mag dich",
-    "ich finde das gut","vielen dank","du hast recht","das war fair","das war freundlich","das war super",
-    "das ist toll","gute idee","ich freue mich","ich helfe dir gerne","ich finde das klasse"
-  ];
+  window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+  window.__SC_POS = -1;
+  window.__SC_AWAITING_STUDENT = false;
 
-  const PENALTY_HATE = -5; // Rassismus / Sexismus / Homophobie
-  const PENALTY_RUDE = -1;
-  const BONUS_ICH    =  5;
-  const BONUS_OTHER  =  1;
+  function postNextScenario(){
+    window.__SC_POS++;
+    if (window.__SC_POS >= window.__SC_QUEUE.length){
+      if (typeof addBot === 'function') addBot(\"💬 Nettiquette-Coach: 🎉 Das waren alle Szenarien. Danke fürs Mitmachen!\");
+      window.__SC_AWAITING_STUDENT = false;
+      return;
+    }
+    const s = window.__SC_QUEUE[window.__SC_POS];
+    if (typeof addBot === 'function') addBot(\"💬 Nettiquette-Coach: Szenario \" + (window.__SC_POS+1) + \"/\" + window.__SC_QUEUE.length + \": \" + (s.prompt || \"\"));
+    window.__SC_AWAITING_STUDENT = true;
+  }
 
-  const origAnalyze = window.analyzeMessage;
-  window.analyzeMessage = function(msg){
-    let base = { notes: [], delta: 0 };
-    try { if (typeof origAnalyze === "function") base = origAnalyze(msg) || base; } catch(e){}
-
-    const notes = Array.isArray(base.notes)? base.notes.slice(): [];
-    let delta = Number(base.delta||0);
-    const lower = normalize(msg);
-    let blocked = false;
-
-    // Strenge Kategorien zuerst (blockierend)
-    if (containsAny(lower, BAD_RACIST))   { delta += PENALTY_HATE; notes.push("⚠️ Rassistisch – Nachricht wird nicht gesendet."); blocked = true; }
-    else if (containsAny(lower, BAD_SEXIST))  { delta += PENALTY_HATE; notes.push("⚠️ Sexistisch – Nachricht wird nicht gesendet."); blocked = true; }
-    else if (containsAny(lower, HOMOPHOB))    { delta += PENALTY_HATE; notes.push("⚠️ Homophob – Nachricht wird nicht gesendet."); blocked = true; }
-    else if (containsAny(lower, BAD_RUDE))    { delta += PENALTY_RUDE; notes.push("⚠️ Unhöflich/vulgär – bitte anders formulieren."); }
-
-    // Form (soft)
-    if (/[A-ZÄÖÜ]{4,}/.test(msg) && msg === msg.toUpperCase()) { delta -= 1; notes.push("⚠️ Bitte nicht BRÜLLEN (ALL CAPS)."); }
-    if ((msg.match(/!/g)||[]).length>=3 || (msg.match(/\?/g)||[]).length>=3 || /[!?]{2,}/.test(msg)) { delta -= 1; notes.push("⚠️ Zu viele !!! oder ???."); }
-
-    // Positive Muster
-    if (hasIch(lower)) { delta += BONUS_ICH; notes.push("✅ Gute Ich‑Botschaft."); }
-    if (/(kannst du|könntest du|was genau|wie meinst du|würdest du|erklär|erkläre|bitte genauer)/i.test(lower)) { delta += BONUS_OTHER; notes.push("✅ Nachfragen erkannt."); }
-    if (/(sorry|entschuldigung|tut mir leid|lass uns|sachlich|ruhig|kein problem|klären|lösung|gemeinsam)/i.test(lower)) { delta += BONUS_OTHER; notes.push("✅ Deeskalation."); }
-    if (/(gut gemacht|das stimmt|korrekt|richtig|gute idee|danke|super|toll|deine aufgabe(n)? (ist|sind) (gut|richtig))/i.test(lower)) { delta += BONUS_OTHER; notes.push("✅ Höfliche Bestätigung."); }
-    for (const w of GOOD) { if (lower.includes(w)) { delta += BONUS_OTHER; break; } }
-
-    return { delta, notes, blocked };
+  window.nextStart = function(){
+    window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+    window.__SC_POS = -1;
+    window.__SC_AWAITING_STUDENT = false;
+    postNextScenario();
   };
 
-  // Sanfter Hook für handleSend: blockierte Nachrichten NICHT anzeigen
-  const chat   = document.getElementById('chatbox') || document.getElementById('chat');
-  const input  = document.getElementById('userText') || document.getElementById('input');
-  const scoreEl= document.getElementById('score') || document.getElementById('scoreBox') || null;
+  const sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
+  const inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
 
-  function setScore(delta){
-    if (!scoreEl) return;
-    const cur = Number(scoreEl.textContent||0); scoreEl.textContent = String(cur + delta);
-  }
-  function addYouSafe(text){
-    const d=document.createElement('div'); d.className='you'; d.textContent=text;
-    const row=document.createElement('div'); row.className='row'; row.appendChild(d);
-    chat.appendChild(row); chat.scrollTop=chat.scrollHeight;
-  }
+  const originalHandle = (typeof window.handleSend === 'function') ? window.handleSend : null;
 
-  const origHandle = window.handleSend;
-  window.handleSend = async function(){
-    const text = (input && input.value||"").trim();
-    if (!text) return;
-    const res = window.analyzeMessage(text);
-
-    if (res.blocked){
-      setScore(res.delta);
-      addBotSafe(res.notes.join(" "));
-      input.value = "";
-      return; // NICHT anzeigen
-    }
-
-    // Sonst normal weiter – entweder dein Original oder unser Fallback
-    if (typeof origHandle === "function"){
-      return origHandle(); // nutzt dieselbe Eingabe, deine Logik bleibt
+  window.handleSend = function(){
+    if (originalHandle) {
+      originalHandle();
     } else {
-      addYouSafe(text);
-      setScore(res.delta);
-      addBotSafe((res.notes.length? res.notes.join(" "): "👍 Sehr höflich!"));
-      input.value = "";
+      const txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
+      if (!txt) return;
+      if (typeof addYou === 'function') addYou(txt);
+      if (typeof addBot === 'function') addBot("Danke für deine Antwort.");
+      if (inputEl) inputEl.value = "";
+    }
+    if (window.__SC_AWAITING_STUDENT) {
+      window.__SC_AWAITING_STUDENT = false;
+      postNextScenario();
     }
   };
 
-  // Enter-Key an das (neue) handleSend hängen (idempotent)
-  if (input){
-    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') window.handleSend(); });
+  if (sendBtn) {
+    try { sendBtn.onclick = window.handleSend; } catch(_){}
+    try { sendBtn.removeEventListener('click', originalHandle); } catch(_){}
+    try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
   }
-  const sendBtn= document.getElementById('sendBtn') || document.getElementById('sendbtn') || document.getElementById('send_button');
-  if (sendBtn){
-    sendBtn.addEventListener('click', function(){ window.handleSend(); });
-  }
-
-  console.log("[neti-patch v2] Kategorien aktiv (Rassismus/Sexismus/Homophobie/Unhöflich) — Layout unverändert.");
 })();
-
 </script>
 
-<script>
-// === NetticatCoach — permanent aktiv, kurz & freundlich auf Deutsch, mit Emojis ===
-// 🔐 API-Key manuell hier eintragen (nicht mit Key ins öffentliche Repo pushen!)
-const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // <-- trage hier deinen API-Key manuell ein
+</div>';
+      list.appendChild(row);
+    });
 
-// Hilfsfunktionen sicher nutzen, ohne Layout zu verändern
-function __nc_addBotLine(text) {
-  try {
-    if (typeof window.addBot === "function") { window.addBot(text); return; }
-    const chat = document.getElementById('chatbox') || document.getElementById('chat');
-    if (!chat) return;
-    const row = document.createElement('div'); row.className = 'row';
-    const b = document.createElement('div'); b.className = 'bot'; b.textContent = text;
-    row.appendChild(b); chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
-  } catch(_) {}
-}
+    // Buttons: Schließen
+    const footer = document.createElement('div');
+    footer.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:10px;";
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = "Schließen";
+    closeBtn.style.cssText = "background:#e5e7eb;color:#111;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;";
+    footer.appendChild(closeBtn);
 
-function __nc_addBotLineTop(text) {
-  try {
-    const chat = document.getElementById('chatbox') || document.getElementById('chat');
-    if (!chat) { __nc_addBotLine(text); return; }
-    const row = document.createElement('div'); row.className = 'row';
-    const b = document.createElement('div'); b.className = 'bot'; b.textContent = text;
-    row.appendChild(b);
-    if (chat.firstChild) chat.insertBefore(row, chat.firstChild); else chat.appendChild(row);
-    chat.scrollTop = 0;
-  } catch(_) {}
-}
+    card.innerHTML = header;
+    card.appendChild(list);
+    card.appendChild(footer);
+    wrap.appendChild(card);
+    document.body.appendChild(wrap);
 
-// Beim Laden: Begrüßung im Schülerton (vor das Szenario)
-(function(){
-  const greet = "Hey 👋, ich bin NetticatCoach 😺 — ich chill hier mit euch im Chat und helf, wenn’s mal hitzig wird 😅";
-  // Wenn schon Nachrichten existieren (z. B. Szenario), Begrüßung oben einsetzen
-  const chat = document.getElementById('chatbox') || document.getElementById('chat');
-  if (chat && chat.children && chat.children.length > 0) {
-    __nc_addBotLineTop(greet);
-  } else {
-    __nc_addBotLine(greet);
+    // Button-Handler: Kopiert den Prompt in das Eingabefeld (ohne Send – keine Layoutänderung)
+    list.addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-idx]');
+      if(!btn) return;
+      const idx = parseInt(btn.getAttribute('data-idx'),10);
+      const s = (window.SCENARIOS||[])[idx];
+      try {
+        const input = document.getElementById('userText') || document.querySelector('#userText');
+        if (input && s && s.prompt){
+          input.value = s.prompt;
+          input.focus();
+        }
+      } catch(_){}
+    });
+
+    // Schließen-Logik
+    function close(){ try{wrap.remove();}catch(_){}};
+    closeBtn.addEventListener('click', close);
+    wrap.addEventListener('click', (e)=>{ if(e.target===wrap) close(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); }, {once:true});
   }
-})();
 
-// Permanent aktiv: auf JEDE Nachricht reagieren
-(function(){
-  const input = document.getElementById('userText') || document.getElementById('input');
-  const sendBtn = document.getElementById('sendBtn') || document.getElementById('sendbtn') || document.getElementById('send_button');
-  if (!input || !sendBtn) { console.warn("NetticatCoach: Eingabe/Send-Elemente nicht gefunden."); return; }
-
-  const origHandleSend = window.handleSend;
-
-  window.handleSend = async function(){
-    const text = (input.value || "").trim();
-    if (!text) return;
-
-    // 1) Zuerst deine bestehende Logik ausführen (zeigt Nutzer-Blase, Punkte, Regeln etc.)
-    if (typeof origHandleSend === "function") {
-      try { await origHandleSend(); } catch(_) {}
-    }
-
-    // 2) Danach NetticatCoach-Antwort holen
-    const reply = await askAI(text);
-    __nc_addBotLine("Antwort von NetticatCoach: " + reply);
+  // Hook: Wenn das Intro "Los geht's!" klickt, darf es window.nextStart() aufrufen.
+  // Falls das Intro gar nicht existiert, bieten wir global einen Start an.
+  window.nextStart = function(){
+    try { showScenarios(); } catch(e){ console.error(e); }
   };
 
-  // Sicherstellen, dass Klick & Enter unser (neues) handleSend verwenden
-  try {
-    sendBtn.addEventListener('click', function(){ window.handleSend(); });
-    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') window.handleSend(); });
-  } catch(_) {}
+  // Optional: Automatisch öffnen, wenn kein Intro vorhanden ist
+  if (typeof window.showCoachIntro === "undefined"){
+    // Kurz verzögert, damit DOM fertig ist
+    setTimeout(()=>{ try{ showScenarios(); }catch(_){}} , 400);
+  }
 })();
 </script>
 
-
 <script>
-// === Abgesetztes Intro-Fenster vom NetticatCoach (ohne Layout-Änderung) ===
-(function showCoachIntro(){
-  const introText = "Hier stelle ich dir verschiedene Szenarien vor. Wie würdest du darauf antworten?";
-  const wrap = document.createElement('div');
-  wrap.setAttribute('role','dialog');
-  wrap.setAttribute('aria-label','NetticatCoach Einführung');
-  wrap.style.cssText = [
-    "position:fixed","inset:0","z-index:99999","display:flex","align-items:center",
-    "justify-content:center","background:rgba(0,0,0,.35)"
-  ].join(";");
-  const card = document.createElement('div');
-  card.style.cssText = [
-    "max-width:520px","width:90%","background:#fff","border-radius:14px",
-    "box-shadow:0 10px 30px rgba(0,0,0,.25)","padding:18px 18px 14px 18px",
-    "font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
-    "color:#111"
-  ].join(";");
-  card.innerHTML =
-    '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">' +
-      '<div style="font-size:20px">😺</div>' +
-      '<div style="font-weight:700">NetticatCoach</div>' +
-    '</div>' +
-    '<div style="margin:4px 0 14px 0; font-size:15px;">'+ introText +'</div>' +
-    '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-      '<button id="ncIntroOk" style="background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;">Los geht’s!</button>' +
-    '</div>';
-  wrap.appendChild(card);
-  document.body.appendChild(wrap);
-  const okBtn = card.querySelector('#ncIntroOk'); okBtn?.focus();
-  async function closeIntro(){
-    try { await initOpenAIKey(); } catch(_) {}
+(function(){
+  try{
+    // Replace any old coach names in static texts to "Nettiquette-Coach"
+    const renameMap = [
+      /Netiquette\s*-?\s*Coach/gi,
+      /Nettikette\s*-?\s*Coach/gi,
+      /ChatNetiquette\s*Bot/gi,
+      /Nettiquette\s*Coach/gi
+    ];
+    const desired = "Nettiquette-Coach";
 
-    wrap.remove();
-    if (typeof window.nextStart === "function" && !window.__ncIntroStartedScenario){
-      window.__ncIntroStartedScenario = true;
-      try { /* nichts tun, wenn dein Szenario schon läuft */ } catch(_){}
-    }
-  }
-  okBtn.addEventListener('click', closeIntro);
-  wrap.addEventListener('click', (e)=>{ if(e.target === wrap) closeIntro(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeIntro(); });
+    // Fix the small intro text if present
+    const desiredIntro = "Hallo, ich bin der Nettiquette-Coach. Hier stelle ich dir verschiedene Szenarien vor. Wie würdest du darauf antworten?";
+
+    // Walk some text containers that likely host the intro
+    const candidates = Array.from(document.querySelectorAll('h1, h2, h3, p, div, section, header, [data-coach-intro], [data-netiquette-intro]'));
+    candidates.forEach(el=>{
+      const t = (el.innerText||"").trim();
+      if (!t) return;
+      // Normalize names
+      let newT = t;
+      renameMap.forEach(rx=>{ newT = newT.replace(rx, desired); });
+      // If the element contains the common phrase, replace whole sentence block with desiredIntro
+      if (/Szenarien vor/i.test(newT) || /Wie würdest du darauf antworten\?/i.test(newT)){
+        newT = desiredIntro;
+      }
+      if (newT !== t) el.innerText = newT;
+    });
+
+    // Also scan buttons for "Los geht's!" and ensure they keep their label
+    Array.from(document.querySelectorAll('button')).forEach(btn=>{
+      const bt = (btn.innerText||'').trim();
+      if (/Los geht'?s!?/i.test(bt)) { btn.innerText = "Los geht's!"; }
+    });
+  }catch(e){ /* silent */ }
 })();
 </script>
 
