@@ -496,6 +496,7 @@ function __nc_addBotLineTop(text) {
       try{
         if (typeof addBot === 'function'){
           addBot("💬 Nettiquette-Coach: Hallo! Ich bin dein Nettiquette-Coach 🤖. Ich helfe dir, höflich zu schreiben und respektvoll zu bleiben.");
+      try { if (typeof window.__SC_FORCE_START === "function") { window.__SC_FORCE_START(); } else if (typeof window.nextStart === "function") { window.nextStart(); } } catch(_){};
         }
       }catch(_){}
       // Start scenarios (inline or existing)
@@ -663,6 +664,7 @@ function __nc_addBotLineTop(text) {
   }
 
   // Start from popup -> nextStart()
+  window.__SC_FORCE_START = function(){ window.__SC_QUEUE = pickFive(ALL_SCENARIOS); window.__SC_POS = -1; window.__SC_AWAITING_STUDENT = false; postNextScenario(); };
   window.nextStart = function(){
     window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
     window.__SC_POS = -1;
