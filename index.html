@@ -459,114 +459,79 @@ function __nc_addBotLineTop(text) {
 </script>
 
 
+<!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__scenarioAsBotFinal) return;
-  window.__scenarioAsBotFinal = true;
+  // Avoid collisions
+  if (window.__NETI_SCENARIOS__) return;
+  window.__NETI_SCENARIOS__ = true;
 
-  const POOL = ["Jemand schreibt dir: „Das war ja mega dumm von dir.“ Wie antwortest du respektvoll und stoppst die Beleidigung?", "Im Chat fällt eine rassistische Bemerkung. Lehn die Formulierung klar ab und erinnere an die Chat-Regeln.", "Eine Schülerin wird wegen ihres Geschlechts herabgewürdigt. Wie reagierst du, um Respekt einzufordern?", "Eine Person wird im Chat ignoriert oder lächerlich gemacht. Welche Nachricht schreibst du, um zu unterstützen?", "Jemand verbreitet ein Gerücht über einen Mitschüler. Wie reagierst du verantwortungsvoll?", "Eine Person flutet den Chat mit Emojis. Formuliere eine kurze, freundliche Aufforderung, das zu lassen.", "Jemand postet eine private Telefonnummer. Was schreibst du sofort?", "Zwei Personen streiten heftig. Welche Nachricht schlägt eine Pause und sachliches Klären vor?", "Eine sarkastische Nachricht wird falsch verstanden. Wie klärst du freundlich auf?", "Jemand wirkt traurig und zurückgezogen. Welche unterstützende Nachricht schreibst du?"];
-  const MAX_ANSWERS = 5;
-  const GREETING = "💬 Nettiquette-Coach: Hallo! Ich bin dein Nettiquette-Coach 🤖. Ich helfe dir, höflich zu schreiben und respektvoll zu bleiben.";
+  const scenarios = [
+    "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
+    "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
+    "Ich habe im Affekt eine unhöfliche Nachricht geschrieben. Ich möchte mich entschuldigen und es besser machen. Was schreibe ich?",
+    "Ich brauche Hilfe bei einer Aufgabe. Ich will höflich fragen und sagen, was ich schon versucht habe. Wie formuliere ich das?",
+    "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
+  ];
 
-  function pickFive(arr){
-    const a = arr.slice();
-    for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a.slice(0,5);
-  }
-
-  let queue = pickFive(POOL);
-  let idx = -1;
-  let answers = 0;
-  let points = 0;
-  let started = false;
-
-  const addBotOriginal = (typeof window.addBot === 'function') ? window.addBot.bind(window) : null;
-  const handleSendOriginal = (typeof window.handleSend === 'function') ? window.handleSend.bind(window) : null;
-
-  function postBot(msg){ if (addBotOriginal) addBotOriginal(msg); }
-
-  function instruction(){
-    postBot("ℹ️ Hinweis: Du darfst bis zu 5 Antworten zu diesem Szenario schreiben. "
-      + "Bitte formuliere vollständige Sätze (mind. 4 Wörter). Danach kommt automatisch das nächste Szenario.");
-  }
-
-  function postNextScenario(){
-    idx++; answers = 0; points = 0;
-    if (idx >= queue.length){ postBot("💬 Nettiquette-Coach: 🎉 Das waren alle Szenarien. Danke fürs Mitmachen!"); return; }
-    const text = queue[idx] || "";
-    postBot("💬 Nettiquette-Coach: " + text); // keine Zählung
-    instruction();
-  }
-
-  // Start direkt NACH dem Begrüßungsbuble
-  if (addBotOriginal){
-    window.addBot = function(msg){
-      addBotOriginal(msg);
-      try {
-        if (!started && String(msg) == GREETING){
-          started = true;
-          postNextScenario();
-        }
-      } catch(e){}
-    };
-  }
-
-  const inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
-  const sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
-
-  function sentenceLike(text){
-    const t = String(text||"").trim();
-    if (!t) return false;
-    const words = (t.match(/[A-Za-zÄÖÜäöüß0-9]+/g) || []).length;
-    if (words < 4) return false;
-    const stop = ["hi","hallo","servus","moin","ok","okay","ja","nein","lol","haha","hm","hmmm"];
-    if (stop.includes(t.toLowerCase())) return false;
-    const ends = /[.!?]$/.test(t);
-    const hasPronVerb = /(ich|du|wir|man|kann|könntest|würde|sollten|bitte)/i.test(t);
-    return ends || hasPronVerb;
-  }
-
-  window.handleSend = function(){
-    const txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
-    if (handleSendOriginal){ handleSendOriginal(); } // erst Original (Spam/Profanity/etc.)
-
-    if (!txt) return;
-
-    try{ if (typeof window.isSpamMessage === 'function' && window.isSpamMessage(txt)) return; }catch(e){}
-
-    if (!sentenceLike(txt)){
-      postBot("⚠️ Nettiquette-Coach: Schreib bitte einen vollständigen Satz (mind. 4 Wörter) mit klarer Aussage.");
-      return;
+  // Fisher-Yates shuffle for randomized order (optional, keeps layout unchanged)
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
+  }
+  const order = shuffle([...scenarios]);
+  let idx = 0;
 
-    try{
-      if (typeof window.analyzeMessage === 'function'){
-        const res = window.analyzeMessage(txt) || {delta:0, notes:[]};
-        points += Number(res.delta||0);
-        if (Array.isArray(res.notes) && res.notes.length){ postBot("📝 Hinweis: " + res.notes[0]); }
-      }
-    }catch(e){}
-
-    answers += 1;
-    if (answers >= MAX_ANSWERS){
-      postBot("✅ Auswertung: Punkte in diesem Szenario: " + points + ". Weiter geht's mit dem nächsten Szenario.");
-      postNextScenario();
-    } else {
-      const left = MAX_ANSWERS - answers;
-      postBot("ℹ️ Du kannst noch " + left + " Antwort" + (left===1?"":"en") + " zu diesem Szenario schreiben.");
-    }
-  };
-
-  if (sendBtn){
-    try { sendBtn.onclick = window.handleSend; } catch(_){}
-    try { sendBtn.removeEventListener('click', handleSendOriginal); } catch(_){}
-    try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
+  function appendBotBubble(html){
+    const chat = document.getElementById("chatbox");
+    if (!chat) return;
+    const row = document.createElement("div");
+    row.className = "row";
+    const bot = document.createElement("div");
+    bot.className = "bot";
+    bot.innerHTML = html;
+    row.appendChild(bot);
+    chat.appendChild(row);
+    // autoscroll
+    chat.scrollTop = chat.scrollHeight;
   }
 
-  // Fallback: falls Patch später lädt als Greeting: starte trotzdem
-  setTimeout(function(){ if (!started){ started = true; postNextScenario(); } }, 1500);
+  function renderScenario(initial=false){
+    const text = order[idx] || order[0];
+    const content = `
+      <div><strong>Szenario:</strong> ${text}</div>
+      <div class="muted" style="margin-top:6px">Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>
+      <div style="margin-top:8px">
+        <button id="nextScenarioBtn" type="button">Nächstes Szenario</button>
+      </div>
+    `;
+    appendBotBubble(content);
+    // set handler
+    const btn = document.getElementById("nextScenarioBtn");
+    if (btn) {
+      btn.addEventListener("click", function(){
+        // remove current button id to avoid duplicate IDs
+        btn.id = "";
+        idx = (idx + 1) % order.length;
+        renderScenario();
+      }, { once: true });
+    }
+  }
+
+  // Ensure greeting appears first; then insert scenario
+  function ready(fn){
+    if (document.readyState !== "loading") { fn(); }
+    else { document.addEventListener("DOMContentLoaded", fn); }
+  }
+
+  ready(function(){
+    // Delay slightly to let any bot greeting render first
+    setTimeout(function(){ renderScenario(true); }, 150);
+  });
 })();
 </script>
-
 </body>
 </html>
