@@ -460,34 +460,35 @@ function __nc_addBotLineTop(text) {
 
 
 
+
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__NETI_SCENARIOS_V2__) return;
-  window.__NETI_SCENARIOS_V2__ = true;
+  if (window.__NETI_SCENARIOS_V4__) return;
+  window.__NETI_SCENARIOS_V4__ = true;
 
-  // Five pedagogical scenarios (Ich-Form, höflich bleiben)
-  const scenarios = [
-    "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
-    "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
-    "Ich habe im Affekt eine unhöfliche Nachricht geschrieben. Ich möchte mich entschuldigen und es besser machen. Was schreibe ich?",
-    "Ich brauche Hilfe bei einer Aufgabe. Ich will höflich fragen und sagen, was ich schon versucht habe. Wie formuliere ich das?",
-    "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
+  // ===== Config =====
+  const NEXT_SCENARIO_AFTER = 5; // answers required
+  const SPAM_REPEAT_CONSONANT_FROM = 3; // set to 2 if du wirklich Doppelkonsonanten schon als Spam werten willst
+  const politeTokens = [
+    "bitte","danke","entschuld","könntest du","kannst du","würde","könnte",
+    "ich finde","meiner meinung","sorry","entschuldige","entschuldigung"
   ];
 
-  // Shuffle scenarios for variety
-  function shuffle(arr){
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-  const order = shuffle([...scenarios]);
-  let idx = 0;
-  let answersSinceScenario = 0;
-  let scenarioHost, nextBtn, counterSpan;
+  // Offensive words/phrases
+  const phraseBad = [
+    /fick\\s*dich/i,
+    /du\\s*huren\\s*sohn/i,
+    /hurensohn/i,
+    /du\\s*hure/i,
+    /du\\s*wichser/i
+  ];
+  const wordBad = [
+    "fick","ficken","scheiss","schei\u00DFe","scheisse","arsch","hurensohn","hure","wichser","miststück","bastard"
+  ];
 
+  // ===== Utils =====
   function $(sel, root=document){ return root.querySelector(sel); }
   function $all(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
 
@@ -495,16 +496,11 @@ function __nc_addBotLineTop(text) {
     return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body") || document.body;
   }
   function findInput(){
-    // try common selectors
     return $("#message") || $("input[name='message']") || $("input[type='text']") || $("textarea");
   }
   function findSendButton(){
-    // common patterns for send button
     let btn = $("#send") || $("#sendBtn") || $("#send-button") || $("button[type='submit']");
-    if (!btn) {
-      // fallback: any button that looks like "Senden"
-      btn = $all("button").find(b => /send|senden/i.test(b.id || "") || /senden|absenden|send/i.test(b.textContent || ""));
-    }
+    if (!btn) btn = $all("button").find(b => /send|senden/i.test(b.id || "") || /senden|absenden|send/i.test(b.textContent || ""));
     return btn || null;
   }
   function appendBotBubbleToChat(html){
@@ -520,15 +516,35 @@ function __nc_addBotLineTop(text) {
     chat.scrollTop = chat.scrollHeight;
   }
 
+  // ===== Scenario host above chat =====
+  const scenarios = [
+    "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
+    "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
+    "Ich habe im Affekt eine unhöfliche Nachricht geschrieben. Ich möchte mich entschuldigen und es besser machen. Was schreibe ich?",
+    "Ich brauche Hilfe bei einer Aufgabe. Ich will höflich fragen und sagen, was ich schon versucht habe. Wie formuliere ich das?",
+    "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
+  ];
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  const order = shuffle([...scenarios]);
+  let idx = 0;
+  let answersSinceScenario = 0;
+  let scenarioHost, nextBtn, counterSpan;
+
   function ensureScenarioHostAboveChat(){
     const chat = findChatBox();
     if (!chat) return;
     if (!scenarioHost){
       scenarioHost = document.createElement("div");
       scenarioHost.id = "scenarioHost";
-      scenarioHost.style.marginBottom = "10px"; // inline spacing only
+      scenarioHost.style.marginBottom = "10px";
     }
-    // Insert scenario host right before the chat box so chat is under the scenario
     if (chat.parentNode && chat.previousSibling !== scenarioHost){
       chat.parentNode.insertBefore(scenarioHost, chat);
     }
@@ -564,7 +580,7 @@ function __nc_addBotLineTop(text) {
 
   function updateCounter(){
     if (!counterSpan || !nextBtn) return;
-    const remaining = Math.max(0, 5 - answersSinceScenario);
+    const remaining = Math.max(0, NEXT_SCENARIO_AFTER - answersSinceScenario);
     if (remaining > 0){
       counterSpan.textContent = "Noch " + remaining + " Antwort" + (remaining===1?"":"en") + " bis zum nächsten Szenario.";
       nextBtn.disabled = true;
@@ -574,63 +590,178 @@ function __nc_addBotLineTop(text) {
     }
   }
 
-  // Vulgar word censor with penalty
-  const badWords = [
-    // Keep list concise; will censor with asterisks
-    "fick", "ficken", "scheiss", "schei\u00DFe", "scheisse", "arsch", "hurensohn", "hure", "wichser", "miststück", "bastard"
-  ];
+  // ===== Scoring =====
+  const score = { plus: 0, minus: 0 };
+
+  function findScoreElement(){
+    const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
+    for (const sel of candidates){
+      const el = $(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function updateScoreDisplay(){
+    const el = findScoreElement();
+    const total = score.plus - score.minus;
+    if (el){
+      const n = parseInt((el.textContent || el.value || "0").replace(/[^0-9\\-]/g,""), 10);
+      if ("value" in el) el.value = String(total);
+      el.textContent = String(total);
+    } else {
+      appendBotBubbleToChat("Punktestand: +" + score.plus + " / -" + score.minus + " ⇒ Gesamt: " + total);
+    }
+  }
+
+  function countPolite(text){
+    if (!text) return 0;
+    let c = 0;
+    const low = text.toLowerCase();
+    politeTokens.forEach(tok => {
+      if (low.includes(tok)) c++;
+    });
+    return Math.min(c, 2);
+  }
+
+  // ===== Censoring & Spam detection =====
+  function maskWord(w){
+    if (!w) return w;
+    if (w.length <= 2) return "*".repeat(w.length);
+    return w[0] + "*".repeat(w.length - 1);
+  }
+  function maskSegmentKeepingSpaces(seg){
+    return seg.replace(/\\S+/g, (word) => maskWord(word));
+  }
 
   function censorText(text){
-    if (!text) return { censored: text, penaltyCount: 0 };
+    if (!text) return { censored: text, penaltyCount: 0, maskedFragments: [] };
     let penalty = 0;
-    let result = text;
-    badWords.forEach(w => {
-      const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
-      result = result.replace(re, (m) => {
+    let out = text;
+    const masked = [];
+
+    // 1) phrases
+    phraseBad.forEach(re => {
+      out = out.replace(re, (m) => {
         penalty++;
-        if (m.length <= 2) return "*".repeat(m.length);
-        return m[0] + "*".repeat(m.length - 1);
+        const maskedSeg = maskSegmentKeepingSpaces(m);
+        masked.push(maskedSeg);
+        return maskedSeg;
       });
     });
-    return { censored: result, penaltyCount: penalty };
+
+    // 2) single words
+    wordBad.forEach(w => {
+      const re = new RegExp("\\\\b" + w.replace(/[.*+?^${}()|[\\]\\\\\\\\]/g,"\\\\$&") + "\\\\b", "gi");
+      out = out.replace(re, (m) => {
+        penalty++;
+        const maskedW = maskWord(m);
+        masked.push(maskedW);
+        return maskedW;
+      });
+    });
+
+    return { censored: out, penaltyCount: penalty, maskedFragments: masked };
   }
 
-  function tryApplyPenalty(count){
+  function detectSpam(text){
+    if (!text) return { count: 0, matches: [], types: [] };
+    const types = [];
+    const matches = [];
+    let count = 0;
+
+    // a) repeated consonants (same consonant >= SPAM_REPEAT_CONSONANT_FROM times)
+    const consonants = "bcdfghjklmnpqrstvwxyzß";
+    const reRepeatCons = new RegExp("([" + consonants + "])\\\\1{" + (SPAM_REPEAT_CONSONANT_FROM-1) + ",}", "i");
+    const m1 = text.match(reRepeatCons);
+    if (m1){
+      count += 1;
+      matches.push(m1[0]);
+      types.push("wiederholte Konsonanten");
+    }
+
+    // b) repeated words with spaces: \b(w)(\s+w){4,}\b  => 5 times or more
+    const reRepeatWordSpaced = /\\b(\\w{1,20})(?:\\s+\\1){4,}\\b/gi;
+    const m2 = text.match(reRepeatWordSpaced);
+    if (m2 && m2.length){
+      count += m2.length;
+      matches.push(...m2);
+      for (let i=0;i<m2.length;i++) types.push("wiederholte Wörter (mit Abstand)");
+    }
+
+    // c) concatenated repeated tokens without spaces: (token){5,}
+    const reRepeatTokenNoSpace = /\\b([a-zA-Z]{1,10})\\1{4,}\\b/g;
+    const m3 = text.match(reRepeatTokenNoSpace);
+    if (m3 && m3.length){
+      count += m3.length;
+      matches.push(...m3);
+      for (let i=0;i<m3.length;i++) types.push("wiederholte Wörter (ohne Abstand)");
+    }
+
+    return { count, matches, types };
+  }
+
+  function highlightLastUserMessage(){
+    const chat = findChatBox();
+    if (!chat) return;
+    const rows = Array.from(chat.querySelectorAll(".row"));
+    for (let i = rows.length - 1; i >= 0; i--){
+      const r = rows[i];
+      const hasBot = !!r.querySelector(".bot");
+      if (hasBot) continue;
+      let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
+      if (!target) continue;
+      // highlight censored tokens (with *)
+      let html = target.innerHTML;
+      html = html.replace(/(\\b[\\p{L}\\p{N}]*\\*+[\\p{L}\\p{N}]*\\b)/gu, "<span style='color:red;font-weight:bold'>$1</span>");
+      target.innerHTML = html;
+      break;
+    }
+  }
+
+  function applyPenalty(count, reason){
     if (!count) return;
-    // Try to find a score element and decrement
-    const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
-    let el = null;
-    for (const sel of candidates){
-      el = $(sel);
-      if (el) break;
-    }
-    if (el){
-      const n = parseInt((el.textContent || el.value || "0").replace(/[^0-9\-]/g,""), 10);
-      if (!isNaN(n)){
-        const nn = n - count;
-        if ("value" in el) el.value = String(nn);
-        el.textContent = String(nn);
-      }
-    }
-    // Bot tip about penalty
-    appendBotBubbleToChat("Hinweis: Unhöfliche Sprache erkannt – es wurden " + count + " Punkt(e) abgezogen. Bitte bleibe höflich und nutze Ich-Botschaften.");
+    score.minus += count;
+    updateScoreDisplay();
+    appendBotBubbleToChat("Hinweis: " + reason + " – " + count + " Punkt(e) abgezogen.");
   }
 
+  function applyPlusPoints(count){
+    if (!count) return;
+    score.plus += count;
+    updateScoreDisplay();
+    appendBotBubbleToChat("Super: Höfliche Formulierung erkannt – +" + count + " Punkt(e).");
+  }
+
+  // ===== Send integration =====
   function onUserSend(textFromInput){
-    // Censor + penalty
-    const { censored, penaltyCount } = censorText(textFromInput || "");
-    // Set back censored text in the input so downstream code sends the starred version
+    const originalText = textFromInput || "";
+
+    // polite (+)
+    const plus = countPolite(originalText);
+
+    // spam (-)
+    const spam = detectSpam(originalText);
+    if (spam.count > 0){
+      applyPenalty(spam.count, "Spam erkannt (" + spam.types.join(", ") + ")");
+    }
+
+    // vulgar (-) with censoring + red highlight
+    const { censored, penaltyCount } = censorText(originalText);
     const input = findInput();
     if (input && censored !== undefined) input.value = censored;
 
-    if (penaltyCount > 0) tryApplyPenalty(penaltyCount);
+    if (penaltyCount > 0){
+      applyPenalty(penaltyCount, "Unhöfliche Sprache erkannt");
+    }
+    if (plus > 0) applyPlusPoints(plus);
 
-    // Count answer towards next scenario
     answersSinceScenario++;
     updateCounter();
+
+    setTimeout(highlightLastUserMessage, 60);
   }
 
-  // Hook into existing send flow without breaking it
   function wrapSendMessage(){
     const original = window.sendMessage;
     if (typeof original === "function"){
@@ -646,7 +777,6 @@ function __nc_addBotLineTop(text) {
   }
 
   function attachFormAndButtonHandlers(){
-    // Attach to form submit
     const form = $("form") || findInput()?.form;
     if (form && !form.__netiPatched){
       form.addEventListener("submit", function(e){
@@ -656,10 +786,8 @@ function __nc_addBotLineTop(text) {
       }, true);
       form.__netiPatched = true;
     }
-    // Attach to a send button click
     const btn = findSendButton();
     if (btn && !btn.__netiPatched){
-      // Make sure it's enabled and labeled
       try { btn.disabled = false; } catch(e){}
       if ((btn.textContent || "").trim() === "") btn.textContent = "Senden";
       btn.addEventListener("click", function(){
@@ -677,13 +805,11 @@ function __nc_addBotLineTop(text) {
   }
 
   ready(function(){
-    // Ensure scenario block is above chat; render initial scenario
     renderScenario(true);
+    updateScoreDisplay();
 
-    // Try to wrap sendMessage; if not present, fall back to form/button hooks
-    if (!wrapSendMessage()) {
+    if (!wrapSendMessage()){
       attachFormAndButtonHandlers();
-      // also observe DOM in case the app renders controls later
       const obs = new MutationObserver(() => attachFormAndButtonHandlers());
       obs.observe(document.documentElement, { childList: true, subtree: true });
     }
