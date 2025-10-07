@@ -463,15 +463,16 @@ function __nc_addBotLineTop(text) {
 
 
 
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__NETI_SCENARIOS_V5__) return;
-  window.__NETI_SCENARIOS_V5__ = true;
+  if (window.__NETI_SCENARIOS_V6__) return;
+  window.__NETI_SCENARIOS_V6__ = true;
 
   // ===== Config =====
-  const NEXT_SCENARIO_AFTER = 5;
-  const SPAM_REPEAT_CONSONANT_FROM = 3; // set 2 for Doppelkonsonant sofort
+  const NEXT_SCENARIO_AFTER = 5;   // answers required before Next is enabled
+  const SPAM_REPEAT_CONSONANT_FROM = 3; // set to 2 for Doppelkonsonant sofort
   const politeTokens = [
     "bitte","danke","entschuld","könntest du","kannst du","würde","könnte",
     "ich finde","meiner meinung","sorry","entschuldige","entschuldigung"
@@ -515,7 +516,47 @@ function __nc_addBotLineTop(text) {
     chat.scrollTop = chat.scrollHeight || 0;
   }
 
-  // ===== Scenario host (robust placement) =====
+  // Try to find the greeting row that contains "Etikette-Coach"
+  function findGreetingRow(){
+    const candidates = $all(".row .bot, .bot, .greeting, #greeting, .intro, .welcome").map(el => el.closest(".row") || el);
+    for (const row of candidates){
+      const text = (row.textContent || "").toLowerCase().replace(/\s+/g, " ");
+      if (text.includes("etikette") && text.includes("coach")) return row;
+      if (text.includes("netiquette") && text.includes("coach")) return row;
+      if (text.includes("hey") && (text.includes("ich bin") || text.includes("i am")) && (text.includes("etikette") || text.includes("netiquette"))) return row;
+    }
+    return null;
+  }
+
+  // ===== Scenario host placement: after greeting, before chat =====
+  let scenarioHost, nextBtn, counterSpan;
+  function ensureScenarioHost(){
+    if (!scenarioHost){
+      scenarioHost = document.createElement("div");
+      scenarioHost.id = "scenarioHost";
+      scenarioHost.style.margin = "8px 0 10px 0"; // small spacing only
+    }
+    const greet = findGreetingRow();
+    const chat = findChatBox();
+    if (greet && greet.parentNode){
+      // Insert right after greeting row
+      if (greet.nextSibling !== scenarioHost){
+        greet.parentNode.insertBefore(scenarioHost, greet.nextSibling);
+      }
+    } else if (chat && chat.parentNode){
+      // Fallback: before chat
+      if (chat.previousSibling !== scenarioHost){
+        chat.parentNode.insertBefore(scenarioHost, chat);
+      }
+    } else {
+      // Ultimate fallback: top of body
+      if (document.body.firstChild !== scenarioHost){
+        document.body.insertBefore(scenarioHost, document.body.firstChild || null);
+      }
+    }
+  }
+
+  // ===== Scenarios =====
   const scenarios = [
     "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
     "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
@@ -533,36 +574,18 @@ function __nc_addBotLineTop(text) {
   const order = shuffle(scenarios.slice());
   let idx = 0;
   let answersSinceScenario = 0;
-  let scenarioHost, nextBtn, counterSpan;
 
-  function ensureScenarioHost(){
-    if (!scenarioHost){
-      scenarioHost = document.createElement("div");
-      scenarioHost.id = "scenarioHost";
-      scenarioHost.style.marginBottom = "10px";
-    }
-    const chat = findChatBox();
-    if (chat && chat.parentNode && chat.previousSibling !== scenarioHost){
-      chat.parentNode.insertBefore(scenarioHost, chat);
-    } else if (!chat) {
-      // place at top of body until chat exists
-      if (document.body.firstChild !== scenarioHost){
-        document.body.insertBefore(scenarioHost, document.body.firstChild || null);
-      }
-    }
-  }
-
-  function renderScenario(initial=false){
+  function renderScenario(){
     ensureScenarioHost();
     const text = order[idx] || order[0];
     scenarioHost.innerHTML = ""
       + "<div class='row'><div class='bot'>"
-      + "<div><strong>Szenario:</strong> " + text + "</div>"
-      + "<div class='muted' style='margin-top:6px'>Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>"
-      + "<div style='margin-top:8px'>"
-      + "  <button id='nextScenarioBtn' type='button' disabled>Nächstes Szenario</button>"
-      + "  <span id='scenarioCounter' style='margin-left:8px; font-size:0.9em; opacity:0.8'></span>"
-      + "</div>"
+      +   "<div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap'>"
+      +     "<div><strong>Szenario:</strong> " + text + "</div>"
+      +     "<button id='nextScenarioBtn' type='button' disabled>Weiteres Szenario</button>"
+      +   "</div>"
+      +   "<div class='muted' style='margin-top:6px'>Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>"
+      +   "<div id='scenarioCounter' style='margin-top:6px; font-size:0.9em; opacity:0.8'></div>"
       + "</div></div>";
 
     nextBtn = $("#nextScenarioBtn", scenarioHost);
@@ -678,7 +701,7 @@ function __nc_addBotLineTop(text) {
       if (hasBot) continue;
       let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
       if (!target) continue;
-      // highlight any tokens containing asterisks (simple, no Unicode props)
+      // highlight tokens containing asterisks
       const html = target.innerHTML;
       const replaced = html.replace(/(\S*\*+\S*)/g, "<span style='color:red;font-weight:bold'>$1</span>");
       if (replaced !== html) target.innerHTML = replaced;
@@ -763,17 +786,20 @@ function __nc_addBotLineTop(text) {
   }
 
   ready(function(){
-    renderScenario(true);
+    renderScenario();   // render once immediately
     updateScoreDisplay();
 
     if (!wrapSendMessage()){
       attachFormAndButtonHandlers();
       const obs = new MutationObserver(() => {
-        // Keep trying to place scenarioHost above chat when chat appears
-        ensureScenarioHost();
+        ensureScenarioHost();       // keep it between greeting and chat
         attachFormAndButtonHandlers();
       });
       obs.observe(document.documentElement, { childList: true, subtree: true });
+    } else {
+      // Even if sendMessage exists, still ensure placement
+      const obs2 = new MutationObserver(() => ensureScenarioHost());
+      obs2.observe(document.documentElement, { childList: true, subtree: true });
     }
   });
 })();
