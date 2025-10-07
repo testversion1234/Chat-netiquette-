@@ -459,13 +459,14 @@ function __nc_addBotLineTop(text) {
 </script>
 
 
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  // Avoid collisions
-  if (window.__NETI_SCENARIOS__) return;
-  window.__NETI_SCENARIOS__ = true;
+  if (window.__NETI_SCENARIOS_V2__) return;
+  window.__NETI_SCENARIOS_V2__ = true;
 
+  // Five pedagogical scenarios (Ich-Form, höflich bleiben)
   const scenarios = [
     "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
     "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
@@ -474,7 +475,7 @@ function __nc_addBotLineTop(text) {
     "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
   ];
 
-  // Fisher-Yates shuffle for randomized order (optional, keeps layout unchanged)
+  // Shuffle scenarios for variety
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -484,9 +485,30 @@ function __nc_addBotLineTop(text) {
   }
   const order = shuffle([...scenarios]);
   let idx = 0;
+  let answersSinceScenario = 0;
+  let scenarioHost, nextBtn, counterSpan;
 
-  function appendBotBubble(html){
-    const chat = document.getElementById("chatbox");
+  function $(sel, root=document){ return root.querySelector(sel); }
+  function $all(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
+
+  function findChatBox(){
+    return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body") || document.body;
+  }
+  function findInput(){
+    // try common selectors
+    return $("#message") || $("input[name='message']") || $("input[type='text']") || $("textarea");
+  }
+  function findSendButton(){
+    // common patterns for send button
+    let btn = $("#send") || $("#sendBtn") || $("#send-button") || $("button[type='submit']");
+    if (!btn) {
+      // fallback: any button that looks like "Senden"
+      btn = $all("button").find(b => /send|senden/i.test(b.id || "") || /senden|absenden|send/i.test(b.textContent || ""));
+    }
+    return btn || null;
+  }
+  function appendBotBubbleToChat(html){
+    const chat = findChatBox();
     if (!chat) return;
     const row = document.createElement("div");
     row.className = "row";
@@ -495,41 +517,176 @@ function __nc_addBotLineTop(text) {
     bot.innerHTML = html;
     row.appendChild(bot);
     chat.appendChild(row);
-    // autoscroll
     chat.scrollTop = chat.scrollHeight;
   }
 
-  function renderScenario(initial=false){
-    const text = order[idx] || order[0];
-    const content = `
-      <div><strong>Szenario:</strong> ${text}</div>
-      <div class="muted" style="margin-top:6px">Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>
-      <div style="margin-top:8px">
-        <button id="nextScenarioBtn" type="button">Nächstes Szenario</button>
-      </div>
-    `;
-    appendBotBubble(content);
-    // set handler
-    const btn = document.getElementById("nextScenarioBtn");
-    if (btn) {
-      btn.addEventListener("click", function(){
-        // remove current button id to avoid duplicate IDs
-        btn.id = "";
-        idx = (idx + 1) % order.length;
-        renderScenario();
-      }, { once: true });
+  function ensureScenarioHostAboveChat(){
+    const chat = findChatBox();
+    if (!chat) return;
+    if (!scenarioHost){
+      scenarioHost = document.createElement("div");
+      scenarioHost.id = "scenarioHost";
+      scenarioHost.style.marginBottom = "10px"; // inline spacing only
+    }
+    // Insert scenario host right before the chat box so chat is under the scenario
+    if (chat.parentNode && chat.previousSibling !== scenarioHost){
+      chat.parentNode.insertBefore(scenarioHost, chat);
     }
   }
 
-  // Ensure greeting appears first; then insert scenario
+  function renderScenario(initial=false){
+    ensureScenarioHostAboveChat();
+    if (!scenarioHost) return;
+
+    const text = order[idx] || order[0];
+    scenarioHost.innerHTML = ""
+      + "<div class='row'><div class='bot'>"
+      + "<div><strong>Szenario:</strong> " + text + "</div>"
+      + "<div class='muted' style='margin-top:6px'>Schreibe deine Antwort im Chat <em>in der Ich-Form</em> und bleibe höflich.</div>"
+      + "<div style='margin-top:8px'>"
+      + "  <button id='nextScenarioBtn' type='button' disabled>Nächstes Szenario</button>"
+      + "  <span id='scenarioCounter' style='margin-left:8px; font-size:0.9em; opacity:0.8'></span>"
+      + "</div>"
+      + "</div></div>";
+
+    nextBtn = $("#nextScenarioBtn", scenarioHost);
+    counterSpan = $("#scenarioCounter", scenarioHost);
+    answersSinceScenario = 0;
+    updateCounter();
+
+    if (nextBtn){
+      nextBtn.addEventListener("click", function(){
+        idx = (idx + 1) % order.length;
+        renderScenario();
+      });
+    }
+  }
+
+  function updateCounter(){
+    if (!counterSpan || !nextBtn) return;
+    const remaining = Math.max(0, 5 - answersSinceScenario);
+    if (remaining > 0){
+      counterSpan.textContent = "Noch " + remaining + " Antwort" + (remaining===1?"":"en") + " bis zum nächsten Szenario.";
+      nextBtn.disabled = true;
+    } else {
+      counterSpan.textContent = "Bereit: Du kannst das nächste Szenario starten.";
+      nextBtn.disabled = false;
+    }
+  }
+
+  // Vulgar word censor with penalty
+  const badWords = [
+    // Keep list concise; will censor with asterisks
+    "fick", "ficken", "scheiss", "schei\u00DFe", "scheisse", "arsch", "hurensohn", "hure", "wichser", "miststück", "bastard"
+  ];
+
+  function censorText(text){
+    if (!text) return { censored: text, penaltyCount: 0 };
+    let penalty = 0;
+    let result = text;
+    badWords.forEach(w => {
+      const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
+      result = result.replace(re, (m) => {
+        penalty++;
+        if (m.length <= 2) return "*".repeat(m.length);
+        return m[0] + "*".repeat(m.length - 1);
+      });
+    });
+    return { censored: result, penaltyCount: penalty };
+  }
+
+  function tryApplyPenalty(count){
+    if (!count) return;
+    // Try to find a score element and decrement
+    const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
+    let el = null;
+    for (const sel of candidates){
+      el = $(sel);
+      if (el) break;
+    }
+    if (el){
+      const n = parseInt((el.textContent || el.value || "0").replace(/[^0-9\-]/g,""), 10);
+      if (!isNaN(n)){
+        const nn = n - count;
+        if ("value" in el) el.value = String(nn);
+        el.textContent = String(nn);
+      }
+    }
+    // Bot tip about penalty
+    appendBotBubbleToChat("Hinweis: Unhöfliche Sprache erkannt – es wurden " + count + " Punkt(e) abgezogen. Bitte bleibe höflich und nutze Ich-Botschaften.");
+  }
+
+  function onUserSend(textFromInput){
+    // Censor + penalty
+    const { censored, penaltyCount } = censorText(textFromInput || "");
+    // Set back censored text in the input so downstream code sends the starred version
+    const input = findInput();
+    if (input && censored !== undefined) input.value = censored;
+
+    if (penaltyCount > 0) tryApplyPenalty(penaltyCount);
+
+    // Count answer towards next scenario
+    answersSinceScenario++;
+    updateCounter();
+  }
+
+  // Hook into existing send flow without breaking it
+  function wrapSendMessage(){
+    const original = window.sendMessage;
+    if (typeof original === "function"){
+      window.sendMessage = function(){
+        const input = findInput();
+        const text = input ? (input.value || "") : "";
+        onUserSend(text);
+        return original.apply(this, arguments);
+      };
+      return true;
+    }
+    return false;
+  }
+
+  function attachFormAndButtonHandlers(){
+    // Attach to form submit
+    const form = $("form") || findInput()?.form;
+    if (form && !form.__netiPatched){
+      form.addEventListener("submit", function(e){
+        const input = findInput();
+        const text = input ? (input.value || "") : "";
+        onUserSend(text);
+      }, true);
+      form.__netiPatched = true;
+    }
+    // Attach to a send button click
+    const btn = findSendButton();
+    if (btn && !btn.__netiPatched){
+      // Make sure it's enabled and labeled
+      try { btn.disabled = false; } catch(e){}
+      if ((btn.textContent || "").trim() === "") btn.textContent = "Senden";
+      btn.addEventListener("click", function(){
+        const input = findInput();
+        const text = input ? (input.value || "") : "";
+        onUserSend(text);
+      }, true);
+      btn.__netiPatched = true;
+    }
+  }
+
   function ready(fn){
-    if (document.readyState !== "loading") { fn(); }
-    else { document.addEventListener("DOMContentLoaded", fn); }
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
   }
 
   ready(function(){
-    // Delay slightly to let any bot greeting render first
-    setTimeout(function(){ renderScenario(true); }, 150);
+    // Ensure scenario block is above chat; render initial scenario
+    renderScenario(true);
+
+    // Try to wrap sendMessage; if not present, fall back to form/button hooks
+    if (!wrapSendMessage()) {
+      attachFormAndButtonHandlers();
+      // also observe DOM in case the app renders controls later
+      const obs = new MutationObserver(() => attachFormAndButtonHandlers());
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
   });
 })();
 </script>
