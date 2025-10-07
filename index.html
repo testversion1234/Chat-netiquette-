@@ -122,7 +122,51 @@
       return {delta, notes};
     }
 
-    // ====== Bot-Starttexte ======
+    
+
+    // ====== Verbotene Wörter verbergen (NEU) ======
+    
+    // ====== Verbotene Wörter verbergen (erweitert für "Du+Beleidigung") ======
+    function __containsBadWords(msg){
+      try {
+        const raw = String(msg||"");
+        const t = raw.toLowerCase();
+
+        // 1) Wortlisten aus der Seite (falls vorhanden)
+        const lists = [];
+        if (typeof BAD_RACIST !== 'undefined') lists.push(BAD_RACIST);
+        if (typeof BAD_SEXIST !== 'undefined') lists.push(BAD_SEXIST);
+        if (typeof HOMOPHOB   !== 'undefined') lists.push(HOMOPHOB);
+        if (typeof BAD_RUDE   !== 'undefined') lists.push(BAD_RUDE);
+        if (typeof RUDE       !== 'undefined') lists.push(RUDE);
+
+        // Fallback-Basisliste (nur wenn nichts anderes vorhanden ist)
+        const fallback = ["fick","hurensohn","fotze","hure","wichser","arsch","arschloch","scheiße","scheisse","idiot","depp","homo","hundesohn"];
+        const baseList = (lists.length ? lists.flat() : fallback).map(x => String(x||"").toLowerCase());
+
+        // 2) Harte Blocker: Wenn irgendein Basis-Schimpfwort einzeln vorkommt, sofort true.
+        if (baseList.some(w => w && t.includes(w))) return true;
+
+        // 3) "Du+Beleidigung" Kombinationen (glued, mit Leerzeichen, oder mit Bindestrich)
+        //    Erweitere hier die Kernwörter — inkl. der ausdrücklich gewünschten.
+        const duCores = Array.from(new Set(baseList.concat(["homo","hurensohn","hundesohn","tochter","arsch","wichser"])));
+
+        function reEscape(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+        const alt = duCores.map(reEscape).join('|');
+
+        const duCombo = new RegExp('\\bdu(?:\\s*|-)?(?:' + alt + ')\\b','i');
+        const duBistCombo = new RegExp('\\bdu\\s+bist\\s+(?:ein|eine|eines)?\\s*(?:' + alt + ')\\b','i');
+
+        if (duCombo.test(raw) || duBistCombo.test(raw)) return true;
+
+        return false;
+      } catch(e){ return false; }
+    }
+return lists.some(arr => (arr||[]).some(w => t.includes(w)));
+      } catch(e){ return false; }
+    }
+
+// ====== Bot-Starttexte ======
     const STARTS = [
       "Paul: „Hä? Deine Aufgabe ist doch voll falsch! 🙄“",
       "Lisa: „Ey, du bist so langsam, mit dir kann man nix anfangen!“",
@@ -131,17 +175,30 @@
     ];
     function nextStart(){ addBot(STARTS[Math.floor(Math.random()*STARTS.length)]); }
 
+    
     function handleSend(){
       const text = input.value.trim();
       if(!text) return;
-      addYou(text);
+
+      const hadBad = __containsBadWords(text);
       const res = analyzeMessage(text);
       setScore(res.delta);
-      addBot((res.notes.length? res.notes.join(" ") : "👍 Sehr höflich!") + " (Score: "+score+")");
+
+      if (hadBad){
+        // Zeige NICHT die eigentliche Nachricht – stattdessen kurzer Hinweis
+        addYou("⛔️ Nachricht verborgen (unangemessene Sprache)");
+        addBot((res.notes.length? res.notes.join(" ") : "⚠️ Bitte respektvoll formulieren.") + " (Score: "+score+")");
+      } else {
+        // Nur saubere Nachrichten anzeigen
+        addYou(text);
+        addBot((res.notes.length? res.notes.join(" ") : "👍 Sehr höflich!") + " (Score: "+score+")");
+      }
+
       input.value="";
     }
 
     sendBtn.addEventListener('click', handleSend);
+('click', handleSend);
     input.addEventListener('keydown', e => { if(e.key === 'Enter') handleSend(); });
 
     nextStart();
