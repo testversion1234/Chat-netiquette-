@@ -465,19 +465,22 @@ function __nc_addBotLineTop(text) {
 
 
 
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__NETI_SCENARIOS_V7__) return;
-  window.__NETI_SCENARIOS_V7__ = true;
+  if (window.__NETI_SCENARIOS_V8__) return;
+  window.__NETI_SCENARIOS_V8__ = true;
 
+  // ===== Config =====
   const NEXT_SCENARIO_AFTER = 2;
-  const SPAM_REPEAT_CONSONANT_FROM = 3;
+  const SPAM_REPEAT_CONSONANT_FROM = 3; // set 2 for Doppelkonsonant sofort
   const politeTokens = [
     "bitte","danke","entschuld","könntest du","kannst du","würde","könnte",
     "ich finde","meiner meinung","sorry","entschuldige","entschuldigung"
   ];
 
+  // Offensive phrases / words
   const phraseBad = [
     /fick\s*dich/i,
     /du\s*huren?\s*sohn/i,
@@ -491,6 +494,7 @@ function __nc_addBotLineTop(text) {
     "hurensohn","hure","wichser","miststück","bastard","fotze"
   ];
 
+  // ===== Utils =====
   function $(sel, root=document){ return root.querySelector(sel); }
   function $all(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
   function findChatBox(){ return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body"); }
@@ -523,6 +527,7 @@ function __nc_addBotLineTop(text) {
     return null;
   }
 
+  // ===== Scenario host between greeting and chat =====
   let scenarioHost, nextBtn, counterSpan, scoreHUD;
   function ensureScenarioHost(){
     if (!scenarioHost){
@@ -607,6 +612,7 @@ function __nc_addBotLineTop(text) {
     }
   }
 
+  // ===== Scoring =====
   const score = { plus: 0, minus: 0 };
   function findScoreElement(){
     const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
@@ -635,6 +641,7 @@ function __nc_addBotLineTop(text) {
     return Math.min(c, 2);
   }
 
+  // ===== Censoring & Spam detection =====
   function maskWord(w){ if (!w) return w; if (w.length <= 2) return "*".repeat(w.length); return w[0] + "*".repeat(w.length - 1); }
   function maskSegmentKeepingSpaces(seg){ return seg.replace(/\S+/g, (word) => maskWord(word)); }
 
@@ -642,10 +649,7 @@ function __nc_addBotLineTop(text) {
     if (!text) return { censored: text, penaltyCount: 0 };
     let penalty = 0;
     let out = text;
-
-    phraseBad.forEach(re => {
-      out = out.replace(re, (m) => { penalty++; return maskSegmentKeepingSpaces(m); });
-    });
+    phraseBad.forEach(re => { out = out.replace(re, (m) => { penalty++; return maskSegmentKeepingSpaces(m); }); });
     wordBad.forEach(w => {
       const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b", "gi");
       out = out.replace(re, (m) => { penalty++; return maskWord(m); });
@@ -656,23 +660,15 @@ function __nc_addBotLineTop(text) {
   function detectSpam(text){
     if (!text) return { count: 0, matches: [], types: [] };
     const types = [];
-    const matches = [];
     let count = 0;
-
     const consonants = "bcdfghjklmnpqrstvwxyzß";
     const reRepeatCons = new RegExp("([" + consonants + "])\\1{" + (SPAM_REPEAT_CONSONANT_FROM-1) + ",}", "i");
-    const m1 = text.match(reRepeatCons);
-    if (m1){ count += 1; matches.push(m1[0]); types.push("wiederholte Konsonanten"); }
-
+    if (reRepeatCons.test(text)){ count += 1; types.push("wiederholte Konsonanten"); }
     const reRepeatWordSpaced = new RegExp("\\b(\\w{1,20})(?:\\s+\\1){4,}\\b","gi");
-    const m2 = text.match(reRepeatWordSpaced);
-    if (m2 && m2.length){ count += m2.length; matches.push(...m2); for (let i=0;i<m2.length;i++) types.push("wiederholte Wörter (mit Abstand)"); }
-
+    if (reRepeatWordSpaced.test(text)){ count += 1; types.push("wiederholte Wörter (mit Abstand)"); }
     const reRepeatTokenNoSpace = new RegExp("\\b([a-zA-Z]{1,10})\\1{4,}\\b","g");
-    const m3 = text.match(reRepeatTokenNoSpace);
-    if (m3 && m3.length){ count += m3.length; matches.push(...m3); for (let i=0;i<m3.length;i++) types.push("wiederholte Wörter (ohne Abstand)"); }
-
-    return { count, matches, types };
+    if (reRepeatTokenNoSpace.test(text)){ count += 1; types.push("wiederholte Wörter (ohne Abstand)"); }
+    return { count, types };
   }
 
   function highlightLastUserMessage(){
@@ -687,6 +683,26 @@ function __nc_addBotLineTop(text) {
       const html = target.innerHTML;
       const replaced = html.replace(/(\S*\*+\S*)/g, "<span style='color:red;font-weight:bold'>$1</span>");
       if (replaced !== html) target.innerHTML = replaced;
+      break;
+    }
+  }
+
+  function annotateLastUserMessage(plusAdded, minusAdded, total){
+    const chat = findChatBox() || document.body;
+    const rows = Array.from(chat.querySelectorAll(".row"));
+    for (let i = rows.length - 1; i >= 0; i--){
+      const r = rows[i];
+      if (r.querySelector(".bot")) continue;
+      if (r.getAttribute("data-has-pts")) break;
+      let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
+      if (!target) break;
+      const ann = document.createElement("div");
+      ann.style.fontSize = "0.85em";
+      ann.style.opacity = "0.75";
+      ann.style.marginTop = "4px";
+      ann.textContent = "Punkte für diese Nachricht: +" + plusAdded + " / -" + minusAdded + " (Gesamt: " + total + ")";
+      target.appendChild(ann);
+      r.setAttribute("data-has-pts","1");
       break;
     }
   }
@@ -709,19 +725,24 @@ function __nc_addBotLineTop(text) {
 
     const plus = countPolite(originalText);
     const spam = detectSpam(originalText);
-    if (spam.count > 0) applyPenalty(spam.count, "Spam erkannt (" + spam.types.join(", ") + ")");
-
     const { censored, penaltyCount } = censorText(originalText);
+
     const input = findInput();
     if (input && censored !== undefined) input.value = censored;
 
+    const minus = (spam.count || 0) + (penaltyCount || 0);
+    if (spam.count > 0) applyPenalty(spam.count, "Spam erkannt (" + (spam.types || []).join(", ") + ")");
     if (penaltyCount > 0) applyPenalty(penaltyCount, "Unhöfliche Sprache erkannt");
     if (plus > 0) applyPlusPoints(plus);
 
     answersSinceScenario++;
     updateCounter();
 
-    setTimeout(highlightLastUserMessage, 60);
+    const total = score.plus - score.minus;
+    setTimeout(function(){
+      highlightLastUserMessage();
+      annotateLastUserMessage(plus, minus, total);
+    }, 80);
   }
 
   function wrapSendMessage(){
@@ -769,7 +790,6 @@ function __nc_addBotLineTop(text) {
   ready(function(){
     renderScenario();
     updateScoreDisplay();
-
     if (!wrapSendMessage()){
       attachFormAndButtonHandlers();
       const obs = new MutationObserver(() => {
