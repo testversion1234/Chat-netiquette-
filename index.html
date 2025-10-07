@@ -462,27 +462,28 @@ function __nc_addBotLineTop(text) {
 
 
 
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
-  if (window.__NETI_SCENARIOS_V4__) return;
-  window.__NETI_SCENARIOS_V4__ = true;
+  if (window.__NETI_SCENARIOS_V5__) return;
+  window.__NETI_SCENARIOS_V5__ = true;
 
   // ===== Config =====
-  const NEXT_SCENARIO_AFTER = 5; // answers required
-  const SPAM_REPEAT_CONSONANT_FROM = 3; // set to 2 if du wirklich Doppelkonsonanten schon als Spam werten willst
+  const NEXT_SCENARIO_AFTER = 5;
+  const SPAM_REPEAT_CONSONANT_FROM = 3; // set 2 for Doppelkonsonant sofort
   const politeTokens = [
     "bitte","danke","entschuld","könntest du","kannst du","würde","könnte",
     "ich finde","meiner meinung","sorry","entschuldige","entschuldigung"
   ];
 
-  // Offensive words/phrases
+  // Offensive phrases / words
   const phraseBad = [
-    /fick\\s*dich/i,
-    /du\\s*huren\\s*sohn/i,
+    /fick\s*dich/i,
+    /du\s*huren\s*sohn/i,
     /hurensohn/i,
-    /du\\s*hure/i,
-    /du\\s*wichser/i
+    /du\s*hure/i,
+    /du\s*wichser/i
   ];
   const wordBad = [
     "fick","ficken","scheiss","schei\u00DFe","scheisse","arsch","hurensohn","hure","wichser","miststück","bastard"
@@ -491,9 +492,8 @@ function __nc_addBotLineTop(text) {
   // ===== Utils =====
   function $(sel, root=document){ return root.querySelector(sel); }
   function $all(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
-
   function findChatBox(){
-    return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body") || document.body;
+    return $("#chatbox") || $("#chat") || $(".chatbox") || $(".chat-body");
   }
   function findInput(){
     return $("#message") || $("input[name='message']") || $("input[type='text']") || $("textarea");
@@ -504,8 +504,7 @@ function __nc_addBotLineTop(text) {
     return btn || null;
   }
   function appendBotBubbleToChat(html){
-    const chat = findChatBox();
-    if (!chat) return;
+    const chat = findChatBox() || document.body;
     const row = document.createElement("div");
     row.className = "row";
     const bot = document.createElement("div");
@@ -513,10 +512,10 @@ function __nc_addBotLineTop(text) {
     bot.innerHTML = html;
     row.appendChild(bot);
     chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
+    chat.scrollTop = chat.scrollHeight || 0;
   }
 
-  // ===== Scenario host above chat =====
+  // ===== Scenario host (robust placement) =====
   const scenarios = [
     "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
     "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
@@ -524,7 +523,6 @@ function __nc_addBotLineTop(text) {
     "Ich brauche Hilfe bei einer Aufgabe. Ich will höflich fragen und sagen, was ich schon versucht habe. Wie formuliere ich das?",
     "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
   ];
-
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -532,28 +530,30 @@ function __nc_addBotLineTop(text) {
     }
     return arr;
   }
-  const order = shuffle([...scenarios]);
+  const order = shuffle(scenarios.slice());
   let idx = 0;
   let answersSinceScenario = 0;
   let scenarioHost, nextBtn, counterSpan;
 
-  function ensureScenarioHostAboveChat(){
-    const chat = findChatBox();
-    if (!chat) return;
+  function ensureScenarioHost(){
     if (!scenarioHost){
       scenarioHost = document.createElement("div");
       scenarioHost.id = "scenarioHost";
       scenarioHost.style.marginBottom = "10px";
     }
-    if (chat.parentNode && chat.previousSibling !== scenarioHost){
+    const chat = findChatBox();
+    if (chat && chat.parentNode && chat.previousSibling !== scenarioHost){
       chat.parentNode.insertBefore(scenarioHost, chat);
+    } else if (!chat) {
+      // place at top of body until chat exists
+      if (document.body.firstChild !== scenarioHost){
+        document.body.insertBefore(scenarioHost, document.body.firstChild || null);
+      }
     }
   }
 
   function renderScenario(initial=false){
-    ensureScenarioHostAboveChat();
-    if (!scenarioHost) return;
-
+    ensureScenarioHost();
     const text = order[idx] || order[0];
     scenarioHost.innerHTML = ""
       + "<div class='row'><div class='bot'>"
@@ -592,7 +592,6 @@ function __nc_addBotLineTop(text) {
 
   // ===== Scoring =====
   const score = { plus: 0, minus: 0 };
-
   function findScoreElement(){
     const candidates = ["#score", "#points", "#negPoints", "#negativeScore", ".score-value"];
     for (const sel of candidates){
@@ -601,26 +600,21 @@ function __nc_addBotLineTop(text) {
     }
     return null;
   }
-
   function updateScoreDisplay(){
     const el = findScoreElement();
     const total = score.plus - score.minus;
     if (el){
-      const n = parseInt((el.textContent || el.value || "0").replace(/[^0-9\\-]/g,""), 10);
       if ("value" in el) el.value = String(total);
       el.textContent = String(total);
     } else {
       appendBotBubbleToChat("Punktestand: +" + score.plus + " / -" + score.minus + " ⇒ Gesamt: " + total);
     }
   }
-
   function countPolite(text){
     if (!text) return 0;
     let c = 0;
     const low = text.toLowerCase();
-    politeTokens.forEach(tok => {
-      if (low.includes(tok)) c++;
-    });
+    politeTokens.forEach(tok => { if (low.includes(tok)) c++; });
     return Math.min(c, 2);
   }
 
@@ -631,37 +625,23 @@ function __nc_addBotLineTop(text) {
     return w[0] + "*".repeat(w.length - 1);
   }
   function maskSegmentKeepingSpaces(seg){
-    return seg.replace(/\\S+/g, (word) => maskWord(word));
+    return seg.replace(/\S+/g, (word) => maskWord(word));
   }
-
   function censorText(text){
-    if (!text) return { censored: text, penaltyCount: 0, maskedFragments: [] };
+    if (!text) return { censored: text, penaltyCount: 0 };
     let penalty = 0;
     let out = text;
-    const masked = [];
 
-    // 1) phrases
+    // phrases
     phraseBad.forEach(re => {
-      out = out.replace(re, (m) => {
-        penalty++;
-        const maskedSeg = maskSegmentKeepingSpaces(m);
-        masked.push(maskedSeg);
-        return maskedSeg;
-      });
+      out = out.replace(re, (m) => { penalty++; return maskSegmentKeepingSpaces(m); });
     });
-
-    // 2) single words
+    // single words
     wordBad.forEach(w => {
-      const re = new RegExp("\\\\b" + w.replace(/[.*+?^${}()|[\\]\\\\\\\\]/g,"\\\\$&") + "\\\\b", "gi");
-      out = out.replace(re, (m) => {
-        penalty++;
-        const maskedW = maskWord(m);
-        masked.push(maskedW);
-        return maskedW;
-      });
+      const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\b", "gi");
+      out = out.replace(re, (m) => { penalty++; return maskWord(m); });
     });
-
-    return { censored: out, penaltyCount: penalty, maskedFragments: masked };
+    return { censored: out, penaltyCount: penalty };
   }
 
   function detectSpam(text){
@@ -670,40 +650,27 @@ function __nc_addBotLineTop(text) {
     const matches = [];
     let count = 0;
 
-    // a) repeated consonants (same consonant >= SPAM_REPEAT_CONSONANT_FROM times)
+    // a) repeated consonants (same consonant >= threshold)
     const consonants = "bcdfghjklmnpqrstvwxyzß";
-    const reRepeatCons = new RegExp("([" + consonants + "])\\\\1{" + (SPAM_REPEAT_CONSONANT_FROM-1) + ",}", "i");
+    const reRepeatCons = new RegExp("([" + consonants + "])\\1{" + (SPAM_REPEAT_CONSONANT_FROM-1) + ",}", "i");
     const m1 = text.match(reRepeatCons);
-    if (m1){
-      count += 1;
-      matches.push(m1[0]);
-      types.push("wiederholte Konsonanten");
-    }
+    if (m1){ count += 1; matches.push(m1[0]); types.push("wiederholte Konsonanten"); }
 
-    // b) repeated words with spaces: \b(w)(\s+w){4,}\b  => 5 times or more
-    const reRepeatWordSpaced = /\\b(\\w{1,20})(?:\\s+\\1){4,}\\b/gi;
+    // b) repeated words with spaces (>=5)
+    const reRepeatWordSpaced = new RegExp("\\b(\\w{1,20})(?:\\s+\\1){4,}\\b","gi");
     const m2 = text.match(reRepeatWordSpaced);
-    if (m2 && m2.length){
-      count += m2.length;
-      matches.push(...m2);
-      for (let i=0;i<m2.length;i++) types.push("wiederholte Wörter (mit Abstand)");
-    }
+    if (m2 && m2.length){ count += m2.length; matches.push(...m2); for (let i=0;i<m2.length;i++) types.push("wiederholte Wörter (mit Abstand)"); }
 
-    // c) concatenated repeated tokens without spaces: (token){5,}
-    const reRepeatTokenNoSpace = /\\b([a-zA-Z]{1,10})\\1{4,}\\b/g;
+    // c) concatenated repeats without spaces (>=5)
+    const reRepeatTokenNoSpace = new RegExp("\\b([a-zA-Z]{1,10})\\1{4,}\\b","g");
     const m3 = text.match(reRepeatTokenNoSpace);
-    if (m3 && m3.length){
-      count += m3.length;
-      matches.push(...m3);
-      for (let i=0;i<m3.length;i++) types.push("wiederholte Wörter (ohne Abstand)");
-    }
+    if (m3 && m3.length){ count += m3.length; matches.push(...m3); for (let i=0;i<m3.length;i++) types.push("wiederholte Wörter (ohne Abstand)"); }
 
     return { count, matches, types };
   }
 
   function highlightLastUserMessage(){
-    const chat = findChatBox();
-    if (!chat) return;
+    const chat = findChatBox() || document.body;
     const rows = Array.from(chat.querySelectorAll(".row"));
     for (let i = rows.length - 1; i >= 0; i--){
       const r = rows[i];
@@ -711,10 +678,10 @@ function __nc_addBotLineTop(text) {
       if (hasBot) continue;
       let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
       if (!target) continue;
-      // highlight censored tokens (with *)
-      let html = target.innerHTML;
-      html = html.replace(/(\\b[\\p{L}\\p{N}]*\\*+[\\p{L}\\p{N}]*\\b)/gu, "<span style='color:red;font-weight:bold'>$1</span>");
-      target.innerHTML = html;
+      // highlight any tokens containing asterisks (simple, no Unicode props)
+      const html = target.innerHTML;
+      const replaced = html.replace(/(\S*\*+\S*)/g, "<span style='color:red;font-weight:bold'>$1</span>");
+      if (replaced !== html) target.innerHTML = replaced;
       break;
     }
   }
@@ -725,7 +692,6 @@ function __nc_addBotLineTop(text) {
     updateScoreDisplay();
     appendBotBubbleToChat("Hinweis: " + reason + " – " + count + " Punkt(e) abgezogen.");
   }
-
   function applyPlusPoints(count){
     if (!count) return;
     score.plus += count;
@@ -737,23 +703,15 @@ function __nc_addBotLineTop(text) {
   function onUserSend(textFromInput){
     const originalText = textFromInput || "";
 
-    // polite (+)
     const plus = countPolite(originalText);
-
-    // spam (-)
     const spam = detectSpam(originalText);
-    if (spam.count > 0){
-      applyPenalty(spam.count, "Spam erkannt (" + spam.types.join(", ") + ")");
-    }
+    if (spam.count > 0) applyPenalty(spam.count, "Spam erkannt (" + spam.types.join(", ") + ")");
 
-    // vulgar (-) with censoring + red highlight
     const { censored, penaltyCount } = censorText(originalText);
     const input = findInput();
     if (input && censored !== undefined) input.value = censored;
 
-    if (penaltyCount > 0){
-      applyPenalty(penaltyCount, "Unhöfliche Sprache erkannt");
-    }
+    if (penaltyCount > 0) applyPenalty(penaltyCount, "Unhöfliche Sprache erkannt");
     if (plus > 0) applyPlusPoints(plus);
 
     answersSinceScenario++;
@@ -777,9 +735,9 @@ function __nc_addBotLineTop(text) {
   }
 
   function attachFormAndButtonHandlers(){
-    const form = $("form") || findInput()?.form;
+    const form = $("form") || (findInput() && findInput().form);
     if (form && !form.__netiPatched){
-      form.addEventListener("submit", function(e){
+      form.addEventListener("submit", function(){
         const input = findInput();
         const text = input ? (input.value || "") : "";
         onUserSend(text);
@@ -810,7 +768,11 @@ function __nc_addBotLineTop(text) {
 
     if (!wrapSendMessage()){
       attachFormAndButtonHandlers();
-      const obs = new MutationObserver(() => attachFormAndButtonHandlers());
+      const obs = new MutationObserver(() => {
+        // Keep trying to place scenarioHost above chat when chat appears
+        ensureScenarioHost();
+        attachFormAndButtonHandlers();
+      });
       obs.observe(document.documentElement, { childList: true, subtree: true });
     }
   });
