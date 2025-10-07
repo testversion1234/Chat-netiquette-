@@ -151,72 +151,68 @@
 
 <script>
 (function(){
-  if (window.__ncScenariosInjected) return;
-  window.__ncScenariosInjected = true;
+  if (window.__inlineScenarioFlowInjected) return;
+  window.__inlineScenarioFlowInjected = true;
 
-  // Szenarien nur setzen, wenn nicht vorhanden
-  if (typeof window.SCENARIOS === "undefined") {
-    window.SCENARIOS = [{"title": "Beleidigung im Klassenchat", "category": "unhöflich", "prompt": "Jemand schreibt im Klassenchat: 'Du bist echt dumm.' Formuliere eine respektvolle Antwort, die deeskaliert und die Netiquette betont.", "guidance": "Ich-Botschaft, Verhalten benennen, Regel verweisen, Gespräch beenden falls nötig."}, {"title": "Rassistische Äußerung", "category": "rassistisch", "prompt": "Eine Person nutzt ein rassistisches Wort. Reagiere klar, aber respektvoll: lehne die Sprache ab, verweise auf die Chat-Regeln und biete alternatives Verhalten an.", "guidance": "Klar ablehnen, verletzende Wirkung benennen, auf Regeln hinweisen, Unterstützung anbieten."}, {"title": "Sexistische Bemerkung", "category": "sexistisch", "prompt": "Im Chat wird eine Mitschülerin wegen ihres Geschlechts abgewertet. Formuliere eine Antwort, die Respekt einfordert und Grenzen setzt.", "guidance": "Respekt anmahnen, Person schützen, Regel/Schulordnung nennen, Lösung vorschlagen."}, {"title": "Gerücht & Fake News", "category": "kritisches Denken", "prompt": "Es wird ein Gerücht über einen Mitschüler verbreitet. Reagiere so, dass du Fakten prüfst und Privatsphäre respektierst.", "guidance": "Quelle prüfen, nicht weiterverbreiten, direkt klären (privat), Moderator informieren."}, {"title": "Ausgrenzung", "category": "sozial", "prompt": "Eine Person wird im Chat ignoriert oder lächerlich gemacht. Formuliere, wie du unterstützend eingreifst.", "guidance": "Empathie zeigen, alle einbeziehen, Regel nennen, Gesprächsregeln vorschlagen."}, {"title": "Spam / Flooding", "category": "Regelverstoß", "prompt": "Jemand spamt den Chat mit Emojis. Antworte kurz und freundlich, fordere zum Stopp auf und erinnere an die Regeln.", "guidance": "Kurz, sachlich, Regelhinweis, ggf. Moderator informieren."}, {"title": "Privatsphäre", "category": "Sicherheit", "prompt": "Jemand postet private Daten (Adresse/Telefon). Reagiere sofort korrekt.", "guidance": "Sofort löschen lassen/melden, Privatsphäre-Regel erklären, Schutz betonen."}, {"title": "Konfliktlösung", "category": "soziale Kompetenz", "prompt": "Zwei Personen streiten heftig. Schreibe eine deeskalierende Nachricht, die zu einer Pause und sachlicher Klärung einlädt.", "guidance": "Ich-Botschaft, Pause vorschlagen, Regeln, Gesprächsrahmen anbieten."}, {"title": "Ironie/Missverständnis", "category": "Kommunikation", "prompt": "Eine sarkastische Nachricht wird missverstanden. Antworte klärend und freundlich.", "guidance": "Nachfragen, Missverständnis benennen, freundlicher Ton."}, {"title": "Hilfsangebot", "category": "positiv handeln", "prompt": "Jemand wirkt traurig und zurückgezogen. Schreibe eine unterstützende Nachricht und biete Hilfe an.", "guidance": "Empathisch, wertschätzend, Hilfe anbieten, Ansprechpersonen nennen."}];
+  const ALL_SCENARIOS = [{"title": "Respekt wahren", "prompt": "Jemand schreibt dir: 'Das war ja mega dumm von dir.' Wie antwortest du respektvoll und stoppst die Beleidigung?"}, {"title": "Rassistische Sprache", "prompt": "Im Chat fällt eine rassistische Bemerkung. Lehn die Formulierung klar ab und erinnere an die Chat-Regeln."}, {"title": "Sexistische Bemerkung", "prompt": "Eine Schülerin wird wegen ihres Geschlechts herabgewürdigt. Wie reagierst du, um Respekt einzufordern?"}, {"title": "Ausgrenzung", "prompt": "Eine Person wird im Chat ignoriert/ausgelacht. Welche Nachricht schreibst du, um zu unterstützen?"}, {"title": "Gerüchte stoppen", "prompt": "Jemand verbreitet ein Gerücht über einen Mitschüler. Wie reagierst du verantwortungsvoll?"}, {"title": "Spam im Chat", "prompt": "Eine Person flutet den Chat mit Emojis. Formuliere eine kurze, freundliche Aufforderung, das zu lassen."}, {"title": "Privatsphäre schützen", "prompt": "Jemand postet eine private Telefonnummer. Was schreibst du sofort?"}, {"title": "Konflikt deeskalieren", "prompt": "Zwei Personen streiten heftig. Welche Nachricht schlägt eine Pause und sachliches Klären vor?"}, {"title": "Missverständnis klären", "prompt": "Eine ironische/sarkastische Nachricht wird falsch verstanden. Wie klärst du freundlich auf?"}, {"title": "Hilfe anbieten", "prompt": "Jemand wirkt traurig und zurückgezogen. Welche unterstützende Nachricht schreibst du?"}];
+
+  function pickFive(arr){
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, 5);
   }
 
-  // Overlay Renderer
-  function showScenarios(){
-    if (document.getElementById("ncScenarioWrap")) return;
-    const wrap = document.createElement('div');
-    wrap.id = "ncScenarioWrap";
-    wrap.setAttribute('role','dialog');
-    wrap.setAttribute('aria-label','Szenarien');
-    wrap.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35)";
+  window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+  window.__SC_POS = -1;
+  window.__SC_AWAITING_STUDENT = false;
 
-    const card = document.createElement('div');
-    card.style.cssText = "max-width:820px;width:94%;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;";
-    card.innerHTML = '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;"><div style="font-size:20px;">🎯</div><div style="font-weight:700">Szenarien – Netiquette‑Coach</div></div>';
-
-    const list = document.createElement('div');
-    (window.SCENARIOS||[]).forEach((s,idx)=>{
-      const row = document.createElement('div');
-      row.style.cssText = "border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin:10px 0;background:#fafafa";
-      const cat = s.category ? '<span style="font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid #ddd;background:#fff;margin-left:6px;">'+s.category+'</span>' : "";
-      row.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">'+(idx+1)+'. '+ (s.title||"Szenario") + cat +'</div>' +
-                      '<div style="margin-bottom:10px;">'+ (s.prompt||"") +'</div>' +
-                      (s.guidance ? '<div style="font-size:12px;color:#444;margin-bottom:8px;"><em>Hinweis:</em> '+s.guidance+'</div>' : '') +
-                      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-                        '<button data-idx="'+idx+'" style="background:#2563eb;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:700;">In Eingabe übernehmen</button>' +
-                      '</div>';
-      list.appendChild(row);
-    });
-
-    const footer = document.createElement('div');
-    footer.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:12px;";
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = "Schließen";
-    closeBtn.style.cssText = "background:#e5e7eb;color:#111;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700;";
-    footer.appendChild(closeBtn);
-
-    card.appendChild(list);
-    card.appendChild(footer);
-    wrap.appendChild(card);
-    document.body.appendChild(wrap);
-
-    list.addEventListener('click', function(e){
-      const btn = e.target.closest('button[data-idx]'); if(!btn) return;
-      const idx = parseInt(btn.getAttribute('data-idx'),10);
-      const s = (window.SCENARIOS||[])[idx];
-      const input = document.getElementById('userText') || document.querySelector('#userText, [name=userText], textarea, input[type=text]');
-      if (input && s && s.prompt){ input.value = s.prompt; input.focus(); }
-    });
-    function close(){ try{wrap.remove();}catch(_){} }
-    closeBtn.addEventListener('click', close);
-    wrap.addEventListener('click', (e)=>{ if(e.target===wrap) close(); });
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); }, {once:true});
+  function postNextScenario(){
+    window.__SC_POS++;
+    if (window.__SC_POS >= window.__SC_QUEUE.length){
+      if (typeof addBot === 'function') addBot("🎉 Das waren alle Szenarien. Danke fürs Mitmachen!");
+      window.__SC_AWAITING_STUDENT = false;
+      return;
+    }
+    const s = window.__SC_QUEUE[window.__SC_POS];
+    if (typeof addBot === 'function') addBot("Szenario " + (window.__SC_POS+1) + "/" + window.__SC_QUEUE.length + ": " + (s.prompt || ""));
+    window.__SC_AWAITING_STUDENT = true;
   }
 
-  // Hook für das Intro: "Los geht's!" soll nextStart auslösen.
-  window.nextStart = function(){ try{ showScenarios(); }catch(e){ console.error(e); } };
+  window.nextStart = function(){
+    window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+    window.__SC_POS = -1;
+    window.__SC_AWAITING_STUDENT = false;
+    postNextScenario();
+  };
 
-  // Falls kein Intro existiert, optional automatisch öffnen, damit man es sieht:
-  if (!document.querySelector('[data-coach-intro],[data-netiquette-intro]')) {
-    setTimeout(()=>{ try{ showScenarios(); }catch(_ ){} }, 600);
+  const sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
+  const inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
+
+  const originalHandle = (typeof window.handleSend === 'function') ? window.handleSend : null;
+
+  window.handleSend = function(){
+    if (originalHandle) {
+      originalHandle();
+    } else {
+      const txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
+      if (!txt) return;
+      if (typeof addYou === 'function') addYou(txt);
+      if (typeof addBot === 'function') addBot("Danke für deine Antwort.");
+      if (inputEl) inputEl.value = "";
+    }
+    if (window.__SC_AWAITING_STUDENT) {
+      window.__SC_AWAITING_STUDENT = false;
+      postNextScenario();
+    }
+  };
+
+  if (sendBtn) {
+    try { sendBtn.onclick = window.handleSend; } catch(_){}
+    try { sendBtn.removeEventListener('click', originalHandle); } catch(_){}
+    try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
   }
 })();
 </script>
