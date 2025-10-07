@@ -342,7 +342,7 @@ return lists.some(arr => (arr||[]).some(w => t.includes(w)));
 </script>
 
 <script>
-// === Nettiquette-Coach — permanent aktiv, kurz & freundlich auf Deutsch, mit Emojis ===
+// === NetticatCoach — permanent aktiv, kurz & freundlich auf Deutsch, mit Emojis ===
 // 🔐 API-Key manuell hier eintragen (nicht mit Key ins öffentliche Repo pushen!)
 const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // <-- trage hier deinen API-Key manuell ein
 
@@ -372,7 +372,7 @@ function __nc_addBotLineTop(text) {
 
 // Beim Laden: Begrüßung im Schülerton (vor das Szenario)
 (function(){
-  const greet = "Hey 👋, ich bin Nettiquette-Coach 😺 — ich chill hier mit euch im Chat und helf, wenn’s mal hitzig wird 😅";
+  const greet = "Hey 👋, ich bin NetticatCoach 😺 — ich chill hier mit euch im Chat und helf, wenn’s mal hitzig wird 😅";
   // Wenn schon Nachrichten existieren (z. B. Szenario), Begrüßung oben einsetzen
   const chat = document.getElementById('chatbox') || document.getElementById('chat');
   if (chat && chat.children && chat.children.length > 0) {
@@ -386,7 +386,7 @@ function __nc_addBotLineTop(text) {
 (function(){
   const input = document.getElementById('userText') || document.getElementById('input');
   const sendBtn = document.getElementById('sendBtn') || document.getElementById('sendbtn') || document.getElementById('send_button');
-  if (!input || !sendBtn) { console.warn("Nettiquette-Coach: Eingabe/Send-Elemente nicht gefunden."); return; }
+  if (!input || !sendBtn) { console.warn("NetticatCoach: Eingabe/Send-Elemente nicht gefunden."); return; }
 
   const origHandleSend = window.handleSend;
 
@@ -399,9 +399,9 @@ function __nc_addBotLineTop(text) {
       try { await origHandleSend(); } catch(_) {}
     }
 
-    // 2) Danach Nettiquette-Coach-Antwort holen
+    // 2) Danach NetticatCoach-Antwort holen
     const reply = await askAI(text);
-    __nc_addBotLine("Antwort von Nettiquette-Coach: " + reply);
+    __nc_addBotLine("Antwort von NetticatCoach: " + reply);
   };
 
   // Sicherstellen, dass Klick & Enter unser (neues) handleSend verwenden
@@ -414,12 +414,12 @@ function __nc_addBotLineTop(text) {
 
 
 <script>
-// === Abgesetztes Intro-Fenster vom Nettiquette-Coach (ohne Layout-Änderung) ===
+// === Abgesetztes Intro-Fenster vom NetticatCoach (ohne Layout-Änderung) ===
 (function showCoachIntro(){
   const introText = "Hier stelle ich dir verschiedene Szenarien vor. Wie würdest du darauf antworten?";
   const wrap = document.createElement('div');
   wrap.setAttribute('role','dialog');
-  wrap.setAttribute('aria-label','Nettiquette-Coach Einführung');
+  wrap.setAttribute('aria-label','NetticatCoach Einführung');
   wrap.style.cssText = [
     "position:fixed","inset:0","z-index:99999","display:flex","align-items:center",
     "justify-content:center","background:rgba(0,0,0,.35)"
@@ -434,7 +434,7 @@ function __nc_addBotLineTop(text) {
   card.innerHTML =
     '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">' +
       '<div style="font-size:20px">😺</div>' +
-      '<div style="font-weight:700">Nettiquette-Coach</div>' +
+      '<div style="font-weight:700">NetticatCoach</div>' +
     '</div>' +
     '<div style="margin:4px 0 14px 0; font-size:15px;">'+ introText +'</div>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
@@ -459,181 +459,10 @@ function __nc_addBotLineTop(text) {
 </script>
 
 
-<!-- === Nettiquette enhancements (popup + bot greeting + spam + ich-form) === -->
 <script>
 (function(){
-  if (window.__nettiquetteEnhancements) return;
-  window.__nettiquetteEnhancements = true;
-
-  // ---------- Popup: normal hint dialog (auto on load) ----------
-  function showWelcomePopup(){
-    if (document.getElementById('ncWelcome')) return;
-    const wrap = document.createElement('div');
-    wrap.id = 'ncWelcome';
-    wrap.setAttribute('role','dialog');
-    wrap.setAttribute('aria-label','Willkommen');
-    wrap.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)";
-
-    const card = document.createElement('div');
-    card.style.cssText = "max-width:520px;width:92%;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:18px;color:#111;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;";
-    card.innerHTML =
-      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">'
-        + '<div style="font-size:22px">👋</div>'
-        + '<div style="font-weight:800">Willkommen!</div>'
-      + '</div>'
-      + '<div style="margin:6px 0 14px;">Hier sind verschiedene Szenarien. Wie würdest du darauf antworten?</div>'
-      + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
-        + '<button id="ncWelcomeGo" style="background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700;">✅ Los geht&#39;s!</button>'
-      + '</div>';
-
-    wrap.appendChild(card);
-    document.body.appendChild(wrap);
-
-    function close(){ try{ wrap.remove(); }catch(_){} }
-    document.getElementById('ncWelcomeGo').addEventListener('click', function(){
-      close();
-      // Bot greeting in chat
-      try{
-        if (typeof addBot === 'function'){
-          addBot("💬 Nettiquette-Coach: Hallo! Ich bin dein Nettiquette-Coach 🤖. Ich helfe dir, höflich zu schreiben und respektvoll zu bleiben.");
-      try { if (typeof window.__SC_FORCE_START === "function") { window.__SC_FORCE_START(); } else if (typeof window.nextStart === "function") { window.nextStart(); } } catch(_){};
-        }
-      }catch(_){}
-      // Start scenarios (inline or existing)
-      try {
-        if (typeof window.nextStart === 'function'){ window.nextStart(); }
-      } catch(_){}
-    });
-    wrap.addEventListener('click', (e)=>{ if(e.target===wrap) close(); });
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); }, {once:true});
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', showWelcomePopup);
-  } else {
-    setTimeout(showWelcomePopup, 0);
-  }
-
-  // ---------- Spam Filter (composed) ----------
-  // If a spam function exists, we extend it; else we define full logic.
-  const consonantRunRx = /([bcdfghjklmnpqrstvwxyz])\1{3,}/i;
-  function hasGluedRepeats(raw){
-    const s = String(raw||"").toLowerCase().replace(/[^a-zäöüß]+/gi, '');
-    if (s.length < 8) return false;
-    for (let L=2; L<=10; L++){
-      for (let i=0; i<=s.length - L*4; i++){
-        const chunk = s.slice(i, i+L);
-        if (!/^[a-zäöüß]+$/.test(chunk)) continue;
-        let k=1;
-        while (i + (k+1)*L <= s.length && s.slice(i + k*L, i + (k+1)*L) === chunk){
-          k++;
-          if (k >= 4) return true;
-        }
-      }
-    }
-    return false;
-  }
-  function hasHyphenRepeats(raw){
-    const t = String(raw||"").toLowerCase();
-    return /([a-zäöüß]{2,10})(?:-\1){3,}/i.test(t);
-  }
-  function baseSpamCheck(text){
-    const t = String(text||"");
-    if (!t.trim()) return false;
-    if (consonantRunRx.test(t)) return true;
-    // Word streak
-    const words = (t.toLowerCase().match(/[a-zäöüß]+/gi) || []);
-    if (words.length >= 4){
-      let streak=1;
-      for (let i=1;i<words.length;i++){
-        if (words[i]===words[i-1]){ streak++; if (streak>=4) return true; } else { streak=1; }
-      }
-      const uniq = new Set(words).size;
-      if (uniq/words.length < 0.3) return true;
-    }
-    // Flooding / patterns
-    if ((t.match(/\n/g)||[]).length > 3) return true;
-    const plain = t.replace(/\s+/g,'');
-    // repeated substrings 2..6 appearing >=6 times overall
-    let seen={}, max=0;
-    for (let L=2; L<=6; L++){
-      seen = {};
-      for (let i=0;i<=plain.length-L;i++){
-        const sub = plain.slice(i,i+L);
-        seen[sub]=(seen[sub]||0)+1;
-      }
-      for (const k in seen){ if (seen[k] > max) max = seen[k]; }
-      if (max>=6) return true;
-    }
-    // glued & hyphen
-    if (hasGluedRepeats(t)) return true;
-    if (hasHyphenRepeats(t)) return true;
-    return false;
-  }
-
-  const origIsSpam = (typeof window.isSpamMessage === 'function') ? window.isSpamMessage : null;
-  window.isSpamMessage = function(msg){
-    try{
-      if (baseSpamCheck(msg)) return true;
-      return origIsSpam ? !!origIsSpam(msg) : false;
-    }catch(e){ return false; }
-  };
-
-  // Wrap handleSend to enforce spam block before any display/save
-  const sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
-  const inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
-  const origHandle = (typeof window.handleSend === 'function') ? window.handleSend : null;
-
-  window.handleSend = function(){
-    const txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
-    if (window.isSpamMessage && window.isSpamMessage(txt)){
-      if (typeof addYou === 'function'){ addYou("⛔️ Nachricht verborgen (Spam erkannt)"); }
-      if (typeof addBot === 'function'){ addBot("⚠️ Nettiquette-Coach: Bitte keine Wiederholungs-Spam. Formuliere kurz und klar."); }
-      if (inputEl) inputEl.value = "";
-      return;
-    }
-    if (origHandle){ origHandle(); }
-  };
-  if (sendBtn){
-    try { sendBtn.onclick = window.handleSend; } catch(_){}
-    try { sendBtn.removeEventListener('click', origHandle); } catch(_){}
-    try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
-  }
-
-  // ---------- Positive Scoring: Ich-Form ----------
-  // If analyzeMessage exists, extend its notes/delta. Otherwise do nothing.
-  (function(){
-    if (typeof window.analyzeMessage !== 'function') return;
-    const oldAnalyze = window.analyzeMessage;
-    window.analyzeMessage = function(msg){
-      const res = oldAnalyze(msg) || {delta:0, notes:[]};
-      try{
-        const t = String(msg||"").toLowerCase();
-        const ichPhrases = [
-          "ich denke","ich finde","ich glaube","ich fühle",
-          "ich würde","ich kann verstehen","ich sehe das so",
-          "meiner meinung nach","aus meiner sicht"
-        ];
-        const used = ichPhrases.find(p => t.includes(p));
-        if (used){
-          // Give small bonus and add note (without duplicating notes)
-          res.delta = (res.delta||0) + 1;
-          const note = "👍 Ich-Form erkannt („" + used + "“) – gute, respektvolle Formulierung.";
-          if (!Array.isArray(res.notes)) res.notes = [];
-          if (!res.notes.some(x => String(x||"").includes("Ich-Form erkannt"))) res.notes.push(note);
-        }
-      }catch(_){}
-      return res;
-    };
-  })();
-})();
-</script>
-
-
-<script>
-(function(){
-  if (window.__inlineScenarioFlowInjected) return;
-  window.__inlineScenarioFlowInjected = true;
+  if (window.__fiveRepliesScenarioInjected) return;
+  window.__fiveRepliesScenarioInjected = true;
 
   const ALL_SCENARIOS = [{"title": "Respekt wahren", "prompt": "Jemand schreibt dir: „Das war ja mega dumm von dir.“ Wie antwortest du respektvoll und stoppst die Beleidigung?"}, {"title": "Rassistische Sprache", "prompt": "Im Chat fällt eine rassistische Bemerkung. Lehn die Formulierung klar ab und erinnere an die Chat-Regeln."}, {"title": "Sexistische Bemerkung", "prompt": "Eine Schülerin wird wegen ihres Geschlechts herabgewürdigt. Wie reagierst du, um Respekt einzufordern?"}, {"title": "Ausgrenzung", "prompt": "Eine Person wird im Chat ignoriert oder lächerlich gemacht. Welche Nachricht schreibst du, um zu unterstützen?"}, {"title": "Gerüchte stoppen", "prompt": "Jemand verbreitet ein Gerücht über einen Mitschüler. Wie reagierst du verantwortungsvoll?"}, {"title": "Spam im Chat", "prompt": "Jemand flutet den Chat mit Emojis. Formuliere eine kurze, freundliche Aufforderung, das zu lassen."}, {"title": "Privatsphäre schützen", "prompt": "Jemand postet eine private Telefonnummer. Was schreibst du sofort?"}, {"title": "Konflikt deeskalieren", "prompt": "Zwei Personen streiten heftig. Welche Nachricht schlägt eine Pause und sachliches Klären vor?"}, {"title": "Missverständnis klären", "prompt": "Eine ironische oder sarkastische Nachricht wird falsch verstanden. Wie klärst du freundlich auf?"}, {"title": "Hilfe anbieten", "prompt": "Jemand wirkt traurig und zurückgezogen. Welche unterstützende Nachricht schreibst du?"}];
 
@@ -646,57 +475,142 @@ function __nc_addBotLineTop(text) {
     return copy.slice(0, 5);
   }
 
-  // Global state
-  window.__SC_QUEUE = [];
-  window.__SC_POS = -1;
-  window.__SC_AWAITING_STUDENT = false;
+  // ===== Global state =====
+  window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+  window.__SC_INDEX = -1;
+  window.__SC_REPLY_COUNT = 0;
+  window.__SC_POINTS_THIS = 0;
+  window.__SC_STARTED = false;
 
-  function postNextScenario(){
-    window.__SC_POS++;
-    if (window.__SC_POS >= window.__SC_QUEUE.length){
-      if (typeof addBot === 'function') addBot("💬 Nettiquette-Coach: 🎉 Das waren alle Szenarien. Danke fürs Mitmachen!");
-      window.__SC_AWAITING_STUDENT = false;
-      return;
+  // Pretty instruction line
+  function postInstruction(){
+    if (typeof addBot === 'function'){
+      addBot("ℹ️ Hinweis: Du darfst zu diesem Szenario bis zu 5 Antworten schreiben. "
+        + "Danach wechselt der Chat automatisch zum nächsten Szenario.");
     }
-    const s = window.__SC_QUEUE[window.__SC_POS];
-    if (typeof addBot === 'function') addBot("💬 Nettiquette-Coach: Szenario " + (window.__SC_POS+1) + "/" + window.__SC_QUEUE.length + " – " + (s.prompt || ""));
-    window.__SC_AWAITING_STUDENT = true; // jetzt auf Schülerantwort warten
   }
 
-  // Start from popup -> nextStart()
-  window.__SC_FORCE_START = function(){ window.__SC_QUEUE = pickFive(ALL_SCENARIOS); window.__SC_POS = -1; window.__SC_AWAITING_STUDENT = false; postNextScenario(); };
-  window.nextStart = function(){
-    window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
-    window.__SC_POS = -1;
-    window.__SC_AWAITING_STUDENT = false;
-    postNextScenario();
-  };
+  // Post next scenario directly under greeting
+  function postNextScenario(){
+    window.__SC_INDEX++;
+    window.__SC_REPLY_COUNT = 0;
+    window.__SC_POINTS_THIS = 0;
+    if (window.__SC_INDEX >= window.__SC_QUEUE.length){
+      if (typeof addBot === 'function') addBot("💬 Nettiquette-Coach: 🎉 Das waren alle Szenarien. Danke fürs Mitmachen!");
+      return;
+    }
+    const s = window.__SC_QUEUE[window.__SC_INDEX];
+    if (typeof addBot === 'function'){
+      addBot("💬 Nettiquette-Coach: Szenario " + (window.__SC_INDEX+1) + "/" + window.__SC_QUEUE.length + " – " + (s.prompt||""));
+      postInstruction();
+    }
+  }
 
-  // Chain the current handleSend (which already has spam/profanity logic)
-  var chainedHandle = (typeof window.handleSend === 'function') ? window.handleSend.bind(window) : null;
-  var sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
-  var inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
+  function startScenariosImmediately(){
+    if (window.__SC_STARTED) return;
+    window.__SC_STARTED = true;
+    // If queue already set by pickFive, keep; else build
+    if (!Array.isArray(window.__SC_QUEUE) || window.__SC_QUEUE.length === 0){
+      window.__SC_QUEUE = pickFive(ALL_SCENARIOS);
+    }
+    window.__SC_INDEX = -1;
+    postNextScenario();
+  }
+
+  // Expose so existing popup or intro can call it
+  window.nextStart = startScenariosImmediately;
+
+  // Try to run right after greeting appears; also fallback
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(startScenariosImmediately, 50); });
+  } else {
+    setTimeout(startScenariosImmediately, 50);
+  }
+
+  // ===== Quality checks =====
+  const SHORT_STOP = ["hi","hallo","servus","moin","ok","okay","ja","nein","lol","haha","hm","hmmm"];
+  function isSentenceLike(text){
+    try{
+      const t = String(text||"").trim();
+      if (!t) return false;
+      const wordCount = (t.match(/[a-zäöüüß0-9]+/gi) || []).length;
+      if (wordCount < 4) return false;
+      const tl = t.toLowerCase();
+      if (SHORT_STOP.includes(tl)) return false;
+      // must contain at least one space and either a verb indicator ("ich", "du", "wir") or punctuation ending
+      const endsOk = /[.!?]$/.test(t);
+      const pron = /(ich|du|wir|man|bitte|kannst|könntest|würde|sollten)/i.test(t);
+      return (endsOk || pron);
+    }catch(e){ return false; }
+  }
+
+  // ===== Chain handleSend to count up to 5 valid replies per scenario =====
+  const inputEl = document.getElementById('userText') || document.querySelector('#userText, textarea, input[type=text]');
+  const sendBtn = document.getElementById('sendBtn') || document.querySelector('[data-send], button[type=submit], .send-btn');
+  const originalHandle = (typeof window.handleSend === 'function') ? window.handleSend : null;
+
+  function afterStudentMessageProcessed(userText){
+    // If message is not sentence-like, nudge and do not count
+    if (!isSentenceLike(userText)){
+      if (typeof addBot === 'function') addBot("⚠️ Nettiquette-Coach: Schreib bitte einen vollständigen Satz (mindestens 4 Wörter) mit klarer Aussage.");
+      return;
+    }
+    // Score via existing analyzeMessage if present
+    try{
+      if (typeof window.analyzeMessage === 'function'){
+        const res = window.analyzeMessage(userText) || {delta:0, notes:[]};
+        const plus = Number(res.delta||0);
+        window.__SC_POINTS_THIS = (window.__SC_POINTS_THIS||0) + plus;
+        if (Array.isArray(res.notes) && res.notes.length && typeof addBot === 'function'){
+          // show the first helpful note briefly
+          addBot("📝 Hinweis: " + res.notes[0]);
+        }
+      }
+    }catch(e){ /* ignore */ }
+
+    // Count valid reply
+    window.__SC_REPLY_COUNT = (window.__SC_REPLY_COUNT||0) + 1;
+
+    // If reached 5, summarize and go next
+    if (window.__SC_REPLY_COUNT >= 5){
+      if (typeof addBot === 'function'){
+        addBot("✅ Auswertung: Du hast 5 Antworten geschrieben. Punkte in diesem Szenario: "
+          + (window.__SC_POINTS_THIS||0)
+          + ". Jetzt geht's weiter mit dem nächsten Szenario.");
+      }
+      postNextScenario();
+    } else {
+      // Remind remaining count
+      const left = 5 - window.__SC_REPLY_COUNT;
+      if (typeof addBot === 'function'){
+        addBot("ℹ️ Du kannst noch " + left + " Antwort" + (left===1?"":"en") + " zu diesem Szenario schreiben.");
+      }
+    }
+  }
 
   window.handleSend = function(){
-    var awaiting = window.__SC_AWAITING_STUDENT;
-    if (chainedHandle){ chainedHandle(); }
-    else {
-      // minimal fallback: echo user's text for flow; should normally not run
-      var txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
-      if (!txt) return;
-      if (typeof addYou === 'function') addYou(txt);
-      if (typeof addBot === 'function') addBot("Danke für deine Antwort.");
-      if (inputEl) inputEl.value = "";
-    }
-    if (awaiting){
-      window.__SC_AWAITING_STUDENT = false;
-      postNextScenario();
+    const txt = inputEl && inputEl.value ? inputEl.value.trim() : "";
+    // If a spam function exists and flags, originalHandle will block and we don't count,
+    // but we still show the coach hint (original code already does). So we just call original and return.
+    if (originalHandle){ originalHandle(); }
+
+    // Only proceed if the text was actually present (user tried to send)
+    if (txt){
+      // If spam function exists and flags, don't count
+      try{
+        if (typeof window.isSpamMessage === 'function' && window.isSpamMessage(txt)){
+          // originalHandle has already posted a spam notice; don't count
+          return;
+        }
+      }catch(e){}
+
+      afterStudentMessageProcessed(txt);
     }
   };
 
   if (sendBtn){
     try { sendBtn.onclick = window.handleSend; } catch(_){}
-    try { sendBtn.removeEventListener('click', chainedHandle); } catch(_){}
+    try { sendBtn.removeEventListener('click', originalHandle); } catch(_){}
     try { sendBtn.addEventListener('click', window.handleSend); } catch(_){}
   }
 })();
