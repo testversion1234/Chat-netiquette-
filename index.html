@@ -702,56 +702,7 @@ function __nc_addBotLineTop(text) {
       const r = rows[i];
       if (r.querySelector(".bot")) continue;
       if (r.getAttribute("data-has-pts")) break;
-      let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
-      if (!target) break;
-      
-      // Build feedback badge
-      const badge = document.createElement("div");
-      badge.className = "tone-badge";
-      let label = "";
-      let cls = "";
-      // Try to infer category via analyzeMessage notes if available
-      let cat = "";
-      try {
-        if (typeof window.analyzeMessage === "function") {
-          const an = window.analyzeMessage(originalText||"") || {};
-          const notes = Array.isArray(an.notes)? an.notes.join(" ").toLowerCase() : "";
-          if (notes.match(/rassis/)) cat = "rassistisch";
-          else if (notes.match(/sexist/)) cat = "sexistisch";
-          else if (notes.match(/homophob/)) cat = "homophob";
-          else if (minusAdded>0) cat = "unhöflich";
-        } else if (minusAdded>0) {
-          cat = "unhöflich";
-        }
-      } catch(e){ if (minusAdded>0) cat = "unhöflich"; }
-
-      if (minusAdded > 0) {
-        // Negative feedback dominates; never show "Höflich" here
-        if (cat === "rassistisch")      { cls = "badge-hate"; }
-        else if (cat === "sexistisch")  { cls = "badge-sexist"; }
-        else if (cat === "homophob")    { cls = "badge-homophob"; }
-        else                            { cls = "badge-negative"; }
-        label = (cat ? (cat[0].toUpperCase()+cat.slice(1)) + " " : "Unhöflich ") + "👎 – " + String(minusAdded) + " Punkt(e)";
-      } else {
-        // Only positive if no minus
-        cls = "badge-positive";
-        label = "Höflich 👍 + " + String(plusAdded) + " Punkt(e)";
-      }
-      badge.className += " " + cls;
-      badge.textContent = label;
-      // place feedback as its own row BELOW the message (not inside the bubble)
-      const annRow = document.createElement("div");
-      annRow.className = "row";
-      const annBox = document.createElement("div");
-      annBox.className = "bot"; // simple container styling; does not alter chat bubble layout
-      annBox.style.background = "transparent";
-      annBox.style.padding = "0";
-      annBox.style.maxWidth = "100%";
-      annBox.appendChild(badge);
-      annRow.appendChild(annBox);
-      r.insertAdjacentElement('afterend', annRow);
-        
-      r.setAttribute("data-has-pts","1");
+      r.setAttribute("data-has-pts","1"); // processed; no feedback injected below
       break;
     }
   }
