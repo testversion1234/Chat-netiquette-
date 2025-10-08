@@ -32,7 +32,15 @@
     .footer-logo{width:64px;height:64px;object-fit:contain;border-radius:8px;background:#fff;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.08)}
     .footer-text a{color:#0b63ff;text-decoration:none}
     .footer-text a:hover{text-decoration:underline}
-  </style>
+  
+    /* minimal feedback badge styles (non-invasive) */
+    .tone-badge{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:.85em;font-weight:600;}
+    .badge-positive{background:#e6f7ef;border:1px solid #bfead4;}
+    .badge-negative{background:#ffe8e8;border:1px solid #ffc2c2;}
+    .badge-hate{background:#ffe1e1;border:1px solid #ff9b9b;}    /* rassistisch */
+    .badge-sexist{background:#f3e1ff;border:1px solid #d8a8ff;}  /* sexistisch */
+    .badge-homophob{background:#ffe1f0;border:1px solid #ff9bd2;}/* homophob */
+    </style>
 </head>
 <body>
   <header>
@@ -687,7 +695,7 @@ function __nc_addBotLineTop(text) {
     }
   }
 
-  function annotateLastUserMessage(plusAdded, minusAdded, total){
+  function annotateLastUserMessage(plusAdded, minusAdded, total, originalText){
     const chat = findChatBox() || document.body;
     const rows = Array.from(chat.querySelectorAll(".row"));
     for (let i = rows.length - 1; i >= 0; i--){
@@ -696,12 +704,43 @@ function __nc_addBotLineTop(text) {
       if (r.getAttribute("data-has-pts")) break;
       let target = r.querySelector(".user") || r.querySelector(":scope > div:not(.bot)") || r;
       if (!target) break;
-      const ann = document.createElement("div");
-      ann.style.fontSize = "0.85em";
-      ann.style.opacity = "0.75";
-      ann.style.marginTop = "4px";
-      ann.textContent = "Punkte für diese Nachricht: +" + plusAdded + " / -" + minusAdded + " (Gesamt: " + total + ")";
-      target.appendChild(ann);
+      
+      // Build feedback badge
+      const badge = document.createElement("div");
+      badge.className = "tone-badge";
+      let label = "";
+      let cls = "";
+      // Try to infer category via analyzeMessage notes if available
+      let cat = "";
+      try {
+        if (typeof window.analyzeMessage === "function") {
+          const an = window.analyzeMessage(originalText||"") || {};
+          const notes = Array.isArray(an.notes)? an.notes.join(" ").toLowerCase() : "";
+          if (notes.match(/rassis/)) cat = "rassistisch";
+          else if (notes.match(/sexist/)) cat = "sexistisch";
+          else if (notes.match(/homophob/)) cat = "homophob";
+          else if (minusAdded>0) cat = "unhöflich";
+        } else if (minusAdded>0) {
+          cat = "unhöflich";
+        }
+      } catch(e){ if (minusAdded>0) cat = "unhöflich"; }
+
+      if (minusAdded > 0) {
+        // Negative feedback dominates; never show "Höflich" here
+        if (cat === "rassistisch")      { cls = "badge-hate"; }
+        else if (cat === "sexistisch")  { cls = "badge-sexist"; }
+        else if (cat === "homophob")    { cls = "badge-homophob"; }
+        else                            { cls = "badge-negative"; }
+        label = (cat ? (cat[0].toUpperCase()+cat.slice(1)) + " " : "Unhöflich ") + "👎 – " + String(minusAdded) + " Punkt(e)";
+      } else {
+        // Only positive if no minus
+        cls = "badge-positive";
+        label = "Höflich 👍 + " + String(plusAdded) + " Punkt(e)";
+      }
+      badge.className += " " + cls;
+      badge.textContent = label + " • Gesamt: " + total;
+      target.appendChild(badge);
+        
       r.setAttribute("data-has-pts","1");
       break;
     }
@@ -733,7 +772,7 @@ function __nc_addBotLineTop(text) {
     const minus = (spam.count || 0) + (penaltyCount || 0);
     if (spam.count > 0) applyPenalty(spam.count, "Spam erkannt (" + (spam.types || []).join(", ") + ")");
     if (penaltyCount > 0) applyPenalty(penaltyCount, "Unhöfliche Sprache erkannt");
-    if (plus > 0) applyPlusPoints(plus);
+    if (plus > 0 && minus === 0) applyPlusPoints(plus); // patched: no + when minus>0
 
     answersSinceScenario++;
     updateCounter();
@@ -741,7 +780,7 @@ function __nc_addBotLineTop(text) {
     const total = score.plus - score.minus;
     setTimeout(function(){
       highlightLastUserMessage();
-      annotateLastUserMessage(plus, minus, total);
+      annotateLastUserMessage(plus, minus, total, originalText);
     }, 80);
   }
 
