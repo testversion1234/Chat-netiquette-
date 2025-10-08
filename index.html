@@ -330,7 +330,7 @@ return lists.some(arr => (arr||[]).some(w => t.includes(w)));
     } else {
       addYouSafe(text);
       setScore(res.delta);
-      addBotSafe((res.notes.length? res.notes.join(" "): "👍 Sehr höflich!"));
+      addBotSafe((res.notes.length? res.notes.join(" ") : (res.delta>0 ? "👍 Sehr höflich!" : "👎 Unhöflich")));
       input.value = "";
     }
   };
