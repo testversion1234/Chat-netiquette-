@@ -739,7 +739,17 @@ function __nc_addBotLineTop(text) {
       }
       badge.className += " " + cls;
       badge.textContent = label;
-      target.appendChild(badge);
+      // place feedback as its own row BELOW the message (not inside the bubble)
+      const annRow = document.createElement("div");
+      annRow.className = "row";
+      const annBox = document.createElement("div");
+      annBox.className = "bot"; // simple container styling; does not alter chat bubble layout
+      annBox.style.background = "transparent";
+      annBox.style.padding = "0";
+      annBox.style.maxWidth = "100%";
+      annBox.appendChild(badge);
+      annRow.appendChild(annBox);
+      r.insertAdjacentElement('afterend', annRow);
         
       r.setAttribute("data-has-pts","1");
       break;
