@@ -67,8 +67,7 @@
       <div id="chat"></div>
       <input id="userText" type="text" placeholder="Schreibe deine Antwort höflich …" />
       <button id="sendBtn">Senden</button>
-      <p class="muted">Tipp: „Ich fand den Einstieg etwas schnell. Könntest du den Teil zu … kurz erklären?“</p>
-    </div>
+</div>
   </main>
 
   <footer>
@@ -330,7 +329,7 @@ return lists.some(arr => (arr||[]).some(w => t.includes(w)));
     } else {
       addYouSafe(text);
       setScore(res.delta);
-      );
+      addBotSafe((res.notes.length ? res.notes.join(" ") : (res.delta > 0 ? "👍 Sehr höflich!" : "")));
       input.value = "";
     }
   };
@@ -467,6 +466,13 @@ function __nc_addBotLineTop(text) {
 </script>
 
 
+
+
+
+
+
+
+
 <!-- Netiquette Scenarios Injected -->
 <script>
 (function(){
@@ -554,10 +560,11 @@ function __nc_addBotLineTop(text) {
   }
 
   const scenarios = [
-    "Paul: „Hä? Deine Aufgabe ist doch voll falsch! 🙄“",
-      "Lisa: „Ey, du bist so langsam, mit dir kann man nix anfangen! 🙄“",
-      "Max: „Na toll, wieder typisch von dir 😂😂😂“",
-      "Anna: „Dein Referat war langweilig.“"
+    "Ich lese eine Nachricht, die mich verletzt. Ich will klar sagen, dass mich der Ton stört, ohne zurückzuschimpfen. Wie formuliere ich das höflich?",
+    "Ich möchte jemanden korrigieren, ohne belehrend zu wirken. Wie schreibe ich das freundlich in der Ich-Form?",
+    "Ich habe im Affekt eine unhöfliche Nachricht geschrieben. Ich möchte mich entschuldigen und es besser machen. Was schreibe ich?",
+    "Ich brauche Hilfe bei einer Aufgabe. Ich will höflich fragen und sagen, was ich schon versucht habe. Wie formuliere ich das?",
+    "Ich will eine hitzige Diskussion beruhigen und an unsere Regeln erinnern. Was schreibe ich, um zu deeskalieren?"
   ];
   function shuffle(arr){
     for (let i = arr.length - 1; i > 0; i--) {
@@ -796,6 +803,5 @@ function __nc_addBotLineTop(text) {
   });
 })();
 </script>
-
 </body>
 </html>
