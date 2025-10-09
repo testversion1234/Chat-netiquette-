@@ -67,7 +67,8 @@
       <div id="chat"></div>
       <input id="userText" type="text" placeholder="Schreibe deine Antwort höflich …" />
       <button id="sendBtn">Senden</button>
-</div>
+      <p class="muted">Tipp: „Ich fand den Einstieg etwas schnell. Könntest du den Teil zu … kurz erklären?“</p>
+    </div>
   </main>
 
   <footer>
@@ -329,7 +330,7 @@ return lists.some(arr => (arr||[]).some(w => t.includes(w)));
     } else {
       addYouSafe(text);
       setScore(res.delta);
-      addBotSafe((res.notes.length ? res.notes.join(" ") : (res.delta > 0 ? "👍 Sehr höflich!" : "")));
+      addBotSafe((res.notes.length? res.notes.join(" ") : (res.delta>0 ? "👍 Sehr höflich!" : "👎 Unhöflich")));
       input.value = "";
     }
   };
