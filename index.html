@@ -804,45 +804,6 @@ function __nc_addBotLineTop(text) {
   });
 })();
 </script>
-<script>
-(() => {
-  const killSelectors = [
-    '.feedback', '.feedback-row', '.rating', '.thumbs',
-    '.badge-unhöflich', '.badge-unhoeflich', '.polite-tip'
-  ];
-
-  const isTip = el => /^tipp:\s*/i.test((el.textContent || '').trim());
-  const isUnhoeflich = el => {
-    const t = (el.textContent || '').toLowerCase();
-    return t === 'unhöflich' || (t.includes('unhöflich') && (t.includes('👎') || t.includes('unhoeflich')));
-  };
-
-  function removeFeedback(root = document) {
-    // 1) bekannte Container
-    killSelectors.forEach(sel =>
-      root.querySelectorAll(sel).forEach(n => n.remove())
-    );
-    // 2) Heuristik nach Textinhalt
-    root.querySelectorAll('p,div,span,section,aside,li').forEach(n => {
-      if (isTip(n) || isUnhoeflich(n)) n.remove();
-    });
-  }
-
-  // sofort versuchen
-  removeFeedback();
-
-  // auch bei später eingefügten Knoten zuschlagen
-  const obs = new MutationObserver(muts => {
-    for (const m of muts) {
-      m.addedNodes.forEach(node => {
-        if (node.nodeType !== 1) return;           // nur Elemente
-        removeFeedback(node instanceof HTMLElement ? node : document);
-      });
-    }
-  });
-  obs.observe(document.documentElement, { childList: true, subtree: true });
-})();
-</script>
 
 </body>
 </html>
