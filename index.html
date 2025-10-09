@@ -804,26 +804,45 @@ function __nc_addBotLineTop(text) {
   });
 })();
 </script>
-  <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // 1) „Tipp: …“-Zeile finden & verstecken
-  [...document.querySelectorAll('p, div, span')].forEach(el => {
-    const t = (el.textContent || '').trim();
-    if (t.startsWith('Tipp:')) el.style.display = 'none';
-  });
+<script>
+(() => {
+  const killSelectors = [
+    '.feedback', '.feedback-row', '.rating', '.thumbs',
+    '.badge-unhöflich', '.badge-unhoeflich', '.polite-tip'
+  ];
 
-  // 2) „Unhöflich“-Badges/Kacheln entfernen (mit/ohne Emoji)
-  [...document.querySelectorAll('*')].forEach(el => {
-    const t = (el.textContent || '').trim().toLowerCase();
-    if (t === 'unhöflich' || t.includes('👎') && t.includes('unhöflich')) {
-      el.remove();
+  const isTip = el => /^tipp:\s*/i.test((el.textContent || '').trim());
+  const isUnhoeflich = el => {
+    const t = (el.textContent || '').toLowerCase();
+    return t === 'unhöflich' || (t.includes('unhöflich') && (t.includes('👎') || t.includes('unhoeflich')));
+  };
+
+  function removeFeedback(root = document) {
+    // 1) bekannte Container
+    killSelectors.forEach(sel =>
+      root.querySelectorAll(sel).forEach(n => n.remove())
+    );
+    // 2) Heuristik nach Textinhalt
+    root.querySelectorAll('p,div,span,section,aside,li').forEach(n => {
+      if (isTip(n) || isUnhoeflich(n)) n.remove();
+    });
+  }
+
+  // sofort versuchen
+  removeFeedback();
+
+  // auch bei später eingefügten Knoten zuschlagen
+  const obs = new MutationObserver(muts => {
+    for (const m of muts) {
+      m.addedNodes.forEach(node => {
+        if (node.nodeType !== 1) return;           // nur Elemente
+        removeFeedback(node instanceof HTMLElement ? node : document);
+      });
     }
   });
-
-  // 3) Falls es benannte Container gibt, ebenso entsorgen
-  document.querySelectorAll('.feedback, .feedback-row, .rating, .thumbs, .badge-unhoeflich, .polite-tip')
-    .forEach(el => el.remove());
-});
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+})();
 </script>
+
 </body>
 </html>
