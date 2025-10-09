@@ -804,5 +804,26 @@ function __nc_addBotLineTop(text) {
   });
 })();
 </script>
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 1) „Tipp: …“-Zeile finden & verstecken
+  [...document.querySelectorAll('p, div, span')].forEach(el => {
+    const t = (el.textContent || '').trim();
+    if (t.startsWith('Tipp:')) el.style.display = 'none';
+  });
+
+  // 2) „Unhöflich“-Badges/Kacheln entfernen (mit/ohne Emoji)
+  [...document.querySelectorAll('*')].forEach(el => {
+    const t = (el.textContent || '').trim().toLowerCase();
+    if (t === 'unhöflich' || t.includes('👎') && t.includes('unhöflich')) {
+      el.remove();
+    }
+  });
+
+  // 3) Falls es benannte Container gibt, ebenso entsorgen
+  document.querySelectorAll('.feedback, .feedback-row, .rating, .thumbs, .badge-unhoeflich, .polite-tip')
+    .forEach(el => el.remove());
+});
+</script>
 </body>
 </html>
